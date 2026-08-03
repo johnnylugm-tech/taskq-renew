@@ -153,6 +153,21 @@ def _build_run_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _parse_args(parser: argparse.ArgumentParser, argv: Optional[List[str]]) -> argparse.Namespace:
+    """Parse an optional token list consistently across command handlers."""
+    return parser.parse_args(list(argv) if argv is not None else [])
+
+
+def _task_payload(task: Task) -> Dict[str, object]:
+    """Serialize a task once for both human and machine-readable output."""
+    return task.model_dump(mode="json")
+
+
+def _emit_json(payload: object) -> None:
+    """Emit one compact, Unicode-preserving JSON record."""
+    print(json.dumps(payload, ensure_ascii=False))
+
+
 def _format_validation_error(err: ValidationError) -> str:
     """[FR-01] Reduce a pydantic ValidationError to a single-line message."""
     errors = err.errors()
@@ -245,7 +260,7 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         SPEC.md §7 line 385 — exit 2 on `--after` 不存在.
     """
     parser = _build_submit_parser()
-    args = parser.parse_args(list(argv) if argv is not None else [])
+    args = _parse_args(parser, argv)
 
     try:
         submission = TaskSubmission(
@@ -312,7 +327,7 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
             `breaker open`).
     """
     parser = _build_run_parser()
-    args = parser.parse_args(list(argv) if argv is not None else [])
+    args = _parse_args(parser, argv)
 
     if not args.run_all and args.task_id is None:
         print("run: must supply a task id or --all", file=sys.stderr)
@@ -463,7 +478,7 @@ def status(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
             `unknown task: <id>`.
     """
     parser = _build_status_parser()
-    args = parser.parse_args(list(argv) if argv is not None else [])
+    args = _parse_args(parser, argv)
 
     store = get_store(use_disk=use_disk)
     task = store.find(args.task_id)
@@ -471,9 +486,9 @@ def status(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         print(f"unknown task: {args.task_id}", file=sys.stderr)
         return 2
 
-    payload = task.model_dump(mode="json")
+    payload = _task_payload(task)
     if args.as_json:
-        print(json.dumps(payload, ensure_ascii=False))
+        _emit_json(payload)
     else:
         for key in payload:
             print(f"{key}: {payload[key]}")
@@ -518,7 +533,7 @@ def list_tasks(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> i
             `store corrupted` (不靜默重建).
     """
     parser = _build_list_parser()
-    args = parser.parse_args(list(argv) if argv is not None else [])
+    args = _parse_args(parser, argv)
 
     store = get_store(use_disk=use_disk)
     try:
@@ -528,7 +543,7 @@ def list_tasks(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> i
         return 1
 
     if args.as_json:
-        print(json.dumps([t.model_dump(mode="json") for t in tasks], ensure_ascii=False))
+        _emit_json([_task_payload(task) for task in tasks])
     else:
         for task in tasks:
             print(f"{task.id}\t{task.status}\t{task.command}")
@@ -771,7 +786,7 @@ def plugins(argv: Optional[List[str]] = None) -> int:
         default=[],
         help="Plugin module names; defaults to $TASKQ_PLUGINS.",
     )
-    args = parser.parse_args(list(argv) if argv is not None else [])
+    args = _parse_args(parser, argv)
 
     specs = [spec for spec in args.specs if spec != "list"]
     if not specs:

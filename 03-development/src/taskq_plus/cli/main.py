@@ -53,8 +53,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "submit":
-        return commands.submit(args.args, use_disk=True)
-
-    # `required=True` on the subparsers makes this branch unreachable.
-    return 1
+    # `required=True` on the subparsers, combined with `submit` being the
+    # only registered choice, means argparse has already rejected every
+    # other token before this point — there is no fallback branch to write
+    # (argparse exits 2 itself on an unknown/missing subcommand).
+    return commands.submit(args.args, use_disk=True)

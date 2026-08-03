@@ -32,7 +32,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, cast
 
 from taskq_plus.models.task import Task
 
@@ -114,12 +114,17 @@ def run_task(task: Task, *, timeout: float) -> TaskResult:
         # code for a configuration the executor never uses (see SPEC.md
         # §3 FR-02 line 110 — `text=True` is part of the canonical
         # subprocess invocation shape).
+        #
+        # The cast() calls below silence pyright (typeshed declares
+        # TimeoutExpired.stdout / .stderr as `bytes | None` regardless
+        # of the `text=` flag on subprocess.run) — the runtime values
+        # are str | None because `text=True` is set on line 104.
         duration_ms = int((time.monotonic() - started) * 1000)
         return TaskResult(
             status="timeout",
             exit_code=None,
-            stdout_tail=_tail(exc.stdout),
-            stderr_tail=_tail(exc.stderr),
+            stdout_tail=_tail(cast(Optional[str], exc.stdout)),
+            stderr_tail=_tail(cast(Optional[str], exc.stderr)),
             duration_ms=duration_ms,
             finished_at=_utcnow(),
         )

@@ -4,3 +4,5 @@
 {"ts": 1785792906.1126149, "component": "run-fr-step:TDD-RED", "what": "max_turns escalated 40 -> 80", "why": "FR-02 TDD-RED was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}
 {"ts": 1785793383.349538, "component": "run-fr-step:TDD-GREEN", "what": "max_turns escalated 40 -> 80", "why": "FR-02 TDD-GREEN was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}
 {"ts": 1785795071.168982, "component": "run-fr-step:TDD-GREEN", "what": "max_turns escalated 40 -> 80", "why": "FR-03 TDD-GREEN was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}
+{"ts": 1785799179.018284, "component": "run-fr-step:CODE-FIX", "what": "max_turns escalated 50 -> 100", "why": "FR-05 CODE-FIX was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}
+{"ts": 1785799926.289322, "component": "agent:developer:3", "what": "wall-clock timeout at 600s", "why": ""}

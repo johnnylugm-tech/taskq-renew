@@ -37,6 +37,35 @@ from taskq_plus.cli import commands
 from taskq_plus.storage.task_store import reset_store_cache
 
 
+#: [FR-01/FR-05] Flags the `submit` handler owns. Every token before the
+#: first of these is part of the free-form command body.
+_SUBMIT_FLAGS: frozenset = frozenset({"--name", "--after", "--json"})
+
+
+def _split_submit_tokens(tokens: List[str]) -> List[str]:
+    """[FR-01/FR-05] Split `submit` tokens into command body + flags.
+
+    `argparse.REMAINDER` hands this module every token after the
+    `submit` keyword verbatim, so `submit echo hi --after <id>` arrives
+    as `["echo", "hi", "--after", "<id>"]`. The command body is
+    free-form (quoted into one token, or split across several), but the
+    trailing `--name` / `--after` / `--json` flags belong to
+    `commands.submit`'s own parser. Joining the whole list would fold
+    `--after <id>` into the command string, silently dropping the
+    dependency edge (and the duplicate-name check with it).
+
+    Citations:
+        SPEC.md §3 FR-01 line 84 — `--name` / `--after` parsing shape.
+        SPEC.md §3 FR-05 line 131 — `submit "<cmd>" [--name N] [--after ID]`.
+    """
+    split_at = len(tokens)
+    for idx, token in enumerate(tokens):
+        if token in _SUBMIT_FLAGS:
+            split_at = idx
+            break
+    return [" ".join(tokens[:split_at]), *tokens[split_at:]]
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="taskq",
@@ -114,9 +143,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "submit":
-        # The user-facing command is free-form; preserve all command tokens
-        # as one validated command string before handing off to the handler.
-        return commands.submit([" ".join(args.args)], use_disk=True)
+        # The command body is free-form; join its tokens into one
+        # validated command string but keep the handler's own flags
+        # (`--name` / `--after` / `--json`) as separate tokens.
+        return commands.submit(
+            _split_submit_tokens(list(args.args)), use_disk=True
+        )
 
     if args.command == "status":
         forwarded = [args.task_id]

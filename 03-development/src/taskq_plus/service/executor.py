@@ -236,33 +236,24 @@ def run_with_retry(
     if len(commands) == 0:
         raise ValueError("run_with_retry requires at least one command")
 
-    for idx, task in enumerate(commands):
-        result = run_task(task, timeout=timeout)
-        # First-attempt success short-circuits — no backoff before
-        # the first attempt.
-        if result.status == "done":
-            return result
-
-        # Decide whether to retry: only retryable failures count,
-        # and only while retries remain AND there is a follow-up
-        # command in the sequence to run.
-        has_followup = idx + 1 < len(commands)
-        retries_done = idx
-        should_retry = (
-            result.status in _RETRYABLE_STATUSES
-            and has_followup
-            and retries_done < retry_limit
-        )
-        if not should_retry:
-            return result
-
+    # The first attempt always runs and never waits — the backoff
+    # belongs strictly *between* attempts. Every subsequent entry in
+    # `commands` is a retry, so the retry policy lives entirely in the
+    # loop condition: keep retrying while (a) a follow-up command
+    # exists, (b) the last outcome was retryable, and (c) the retry
+    # budget is not spent (`idx - 1` retries have already happened
+    # before the attempt at index `idx`). Expressing all three as loop
+    # guards means the loop can only exit one way — through the single
+    # `return` below — so there is no unreachable fall-through branch.
+    result = run_task(commands[0], timeout=timeout)
+    idx = 1
+    while (
+        idx < len(commands)
+        and result.status in _RETRYABLE_STATUSES
+        and idx - 1 < retry_limit
+    ):
         # n-th retry (1-indexed) waits `base * 2**n` seconds.
-        sleep_fn(backoff_base * (2 ** (idx + 1)))
-
-    # Unreachable: `len(commands) >= 1` plus the `return` on each
-    # iteration means the loop cannot fall through. Kept as a final
-    # `assert` for static type-checkers so the return type stays
-    # `TaskResult` (the loop body always returns).
-    raise AssertionError(  # pragma: no cover — defensive
-        "run_with_retry loop fell through; the precondition is broken"
-    )
+        sleep_fn(backoff_base * (2 ** idx))
+        result = run_task(commands[idx], timeout=timeout)
+        idx += 1
+    return result

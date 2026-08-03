@@ -1,4 +1,4 @@
-# Project Brief — taskq-plus
+# Project Brief — taskq
 
 ## canonical_spec
 SPEC.md (v1.0.0, 2026-07-30, 8 FR / **12 NFR** / 12 env vars)
@@ -17,7 +17,7 @@ results as json / csv / markdown.
   round 3 = TypeScript, deferred)
 
 ## Business Goals
-- Provide a reliable local task queue CLI (`taskq-plus`) supporting submit,
+- Provide a reliable local task queue CLI (`taskq`) supporting submit,
   run (single / all / cached), dependency graph, status, list, plugins,
   export and clear
 - Demonstrate the full Phase 1–8 harness-methodology pipeline on a real

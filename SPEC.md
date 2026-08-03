@@ -1,6 +1,6 @@
-# taskq-plus — 規格文件(單一事實來源)
+# taskq — 規格文件(單一事實來源)
 
-> 本文件為 `taskq-plus` 的完整規格。**所有實作以此文件為準。**
+> 本文件為 `taskq` 的完整規格。**所有實作以此文件為準。**
 > 專案角色:harness-methodology 漸進式驗證測床**第 1 輪**(Python CLI 補洞版)——
 > 以真實小型專案形態完整行使 Phase 1–8 開發管線,並**點亮前一個測床(taskq)無法行使的品質維度**。
 
@@ -11,7 +11,7 @@
 | 欄位 | 值 |
 |------|-----|
 | 文件版本 | v1.0.0 |
-| 專案名稱 | `taskq-plus` |
+| 專案名稱 | `taskq` |
 | 驗證輪次 | 第 1 輪 / 共 3 輪(第 2 輪 `SPEC-2.md` 後端+DB;第 3 輪 TypeScript,暫緩) |
 | 前一測床 | `taskq`(run-all-by-workflow,SPEC v4.0.0,5 FR / 10 NFR) |
 | 制訂日期 | 2026-07-30 |
@@ -41,7 +41,7 @@
 
 ## 1. 概述
 
-- **專案名稱**:`taskq-plus`
+- **專案名稱**:`taskq`
 - **目的**:本地任務佇列 CLI — 提交 shell 命令為任務,受控執行(timeout / 重試 / 斷路器 / 快取 / **相依 DAG**),支援 **plugin hook** 與**結構化稽核日誌**,狀態可查詢可匯出
 - **語言**:Python 3.11
 - **依賴策略**:**明確引入釘版第三方依賴**(與前輪的「零依賴」相反,這是本輪的設計目的之一 — 見 NFR-07)
@@ -71,7 +71,7 @@
 
 ### FR-01: 任務提交與驗證
 
-`taskq-plus submit "<command>" [--name NAME] [--after ID]...`
+`taskq submit "<command>" [--name NAME] [--after ID]...`
 
 提交的欄位由 **`pydantic` 模型 `TaskSubmission`** 驗證,任一違反 → **exit 2** + stderr 錯誤訊息,不寫入存儲:
 
@@ -93,7 +93,7 @@
 
 ### FR-02: 任務執行器
 
-`taskq-plus run <id>` 或 `taskq-plus run --all`
+`taskq run <id>` 或 `taskq run --all`
 
 - 以 `subprocess.run(shlex.split(command), capture_output=True, text=True, timeout=TASKQ_TASK_TIMEOUT)` 執行;**任何路徑不得使用 `shell=True`**
 - 狀態機:`pending → running → done | failed | timeout | blocked`
@@ -117,7 +117,7 @@
 ### FR-04: 結果 TTL 快取
 
 - 快取簽名 = `sha256(command)`
-- `taskq-plus run <id> --cached`:同簽名且結果為 `done` 的最近執行在 `TASKQ_CACHE_TTL` 秒內 → 直接回放(`exit_code`/`stdout_tail`),**不執行 subprocess**,任務標記 `done` 且 `cached: true`
+- `taskq run <id> --cached`:同簽名且結果為 `done` 的最近執行在 `TASKQ_CACHE_TTL` 秒內 → 直接回放(`exit_code`/`stdout_tail`),**不執行 subprocess**,任務標記 `done` 且 `cached: true`
 - 快取過期或不存在 → 正常執行,成功(`done`)後寫入 `$TASKQ_HOME/cache.json`
 - 快取讀寫:原子 + 執行緒安全(與 FR-02 並發共存)
 
@@ -329,7 +329,7 @@
 ## 6. 資料夾結構
 
 ```
-taskq-plus/
+taskq/
 ├── 03-development/
 │   ├── src/taskq_plus/
 │   │   ├── __init__.py

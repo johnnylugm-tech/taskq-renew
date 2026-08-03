@@ -74,21 +74,18 @@ class Breaker:
         self.opened_at: Optional[float] = None
 
     def record_failure(self) -> None:
-        """[FR-03] Increment `failure_count`; transition to OPEN at threshold.
+        """[FR-03] Increment `failure_count`; trip to OPEN at threshold.
 
-        When `failure_count` reaches `threshold` the breaker trips:
-        `state` becomes `OPEN` and `opened_at` is anchored to the
-        injected clock so `check()` can compute cooldown eligibility.
-        Idempotent: subsequent calls while OPEN keep the state OPEN
-        (and refresh `opened_at`) so the cooldown window restarts.
+        When `failure_count` reaches `threshold` the breaker trips to
+        OPEN and `opened_at` is anchored to the injected clock so
+        `check()` can compute cooldown eligibility. Subsequent
+        failures while OPEN refresh `opened_at` so a burst of failures
+        cannot let the cooldown lapse prematurely.
         """
         self.failure_count += 1
-        if self.failure_count >= self.threshold and self.state != STATE_OPEN:
+        if self.failure_count >= self.threshold:
             self.state = STATE_OPEN
-            self.opened_at = self.clock()
-        elif self.state == STATE_OPEN:
-            # Re-failure while OPEN re-anchors the cooldown window so
-            # the breaker does not flap into HALF_OPEN during a burst.
+        if self.state == STATE_OPEN:
             self.opened_at = self.clock()
 
     def record_success(self) -> None:

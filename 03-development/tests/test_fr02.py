@@ -27,7 +27,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -597,3 +596,441 @@ def test_fr02_executor_run_task_returns_failed_for_nonzero_exit():
         f"non-zero exit must be status=failed, got {result.status!r}"
     )
     assert result.exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.cli.commands.submit` — in-process validation paths
+# ---------------------------------------------------------------------------
+# These drive `commands.submit(...)` directly so `pytest-cov` can measure
+# the same validation surfaces the subprocess tests in `test_fr01.py`
+# exercise. They are the in-process counterpart to FR-01 cases 1–7; from
+# FR-02's perspective they exist solely to keep coverage measurable on
+# the shared CLI dispatcher (subprocess tests cannot raise coverage here).
+
+
+def _capture_submit(argv):
+    """Run `commands.submit(argv)` with stdout/stderr redirected."""
+    from taskq_plus.cli import commands  # local import — sys.path injection is per-test
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.submit(argv)
+    return rc, out.getvalue(), err.getvalue()
+
+
+def _capture_run(argv, *, use_disk: bool = False):
+    """Run `commands.run(argv)` with stdout/stderr redirected."""
+    from taskq_plus.cli import commands  # local import — sys.path injection is per-test
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run(argv, use_disk=use_disk)
+    return rc, out.getvalue(), err.getvalue()
+
+
+# NFR-09
+def test_fr02_inprocess_submit_valid_command(taskq_home):
+    """In-process: `commands.submit(["echo hi"])` returns 0 and prints the
+    new task id.
+    """
+    from taskq_plus.storage.task_store import (
+        get_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_submit(["echo hi"])
+    assert rc == 0, f"valid submit must exit 0; stderr={stderr!r}"
+    task_id = stdout.strip()
+    assert TASK_ID_RE.match(task_id), (
+        f"submit must print an 8-hex id; got {task_id!r}"
+    )
+
+    # Do NOT reset the store cache here — `submit()` just populated the
+    # in-memory backend; clearing would drop the task before we can read it.
+    store = get_store(use_disk=False)
+    tasks = store.load()
+    assert len(tasks) == 1
+    assert tasks[0].id == task_id
+    assert tasks[0].command == "echo hi"
+    assert tasks[0].status == "pending"
+
+
+# NFR-09
+def test_fr02_inprocess_submit_empty_command_rejected(taskq_home):
+    """In-process: an empty `command` is rejected by pydantic validation
+    and surfaces via `_format_validation_error` + `_emit_stderr_error`
+    with exit code 2.
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_submit([""])
+    assert rc == 2, f"empty command must exit 2; got {rc}"
+    assert "submit:" in stderr, (
+        f"validation error must be prefixed with 'submit:'; got {stderr!r}"
+    )
+    assert "empty" in stderr.lower(), (
+        f"empty-command validation message must mention 'empty'; "
+        f"got {stderr!r}"
+    )
+
+
+# NFR-09 / NFR-02 (injection blacklist)
+def test_fr02_inprocess_submit_injection_rejected(taskq_home):
+    """In-process: a command containing an injection character (`;`)
+    is rejected with exit 2 and the validation message names the bad
+    character.
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_submit(["echo hi; rm x"])
+    assert rc == 2, f"injection command must exit 2; got {rc}"
+    assert "submit:" in stderr
+    assert ";" in stderr, (
+        f"injection-char error must name the bad character ';'; "
+        f"got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_submit_duplicate_name_rejected(taskq_home):
+    """In-process: a second submission with the same `--name` against a
+    pending task is rejected with exit 2 and the duplicate-name marker.
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc1, _, _ = _capture_submit(["echo a", "--name", "dup"])
+    assert rc1 == 0, "first submit must succeed"
+
+    rc2, stdout, stderr = _capture_submit(["echo b", "--name", "dup"])
+    assert rc2 == 2, f"duplicate name must exit 2; got {rc2}"
+    assert "duplicate name" in stderr, (
+        f"duplicate-name error must say 'duplicate name'; got {stderr!r}"
+    )
+    assert "dup" in stderr, (
+        f"duplicate-name error must echo the offending name; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_submit_unknown_dependency_rejected(taskq_home):
+    """In-process: `--after deadbeef` against a non-existent task is
+    rejected with exit 2 and the unknown-dependency marker.
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_submit(
+        ["echo b", "--after", "deadbeef"]
+    )
+    assert rc == 2, f"unknown dependency must exit 2; got {rc}"
+    assert "unknown dependency" in stderr, (
+        f"unknown-dep error must say 'unknown dependency'; got {stderr!r}"
+    )
+    assert "deadbeef" in stderr, (
+        f"unknown-dep error must echo the offending id; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_submit_json_flag_emits_json(taskq_home):
+    """In-process: `--json` causes `commands.submit` to print a JSON
+    object with the new task's `id` and `status` (instead of just the id).
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_submit(["echo hi", "--json"])
+    assert rc == 0, f"--json submit must exit 0; stderr={stderr!r}"
+    payload = _json.loads(stdout.strip())
+    assert "id" in payload, f"--json payload must include 'id'; got {payload!r}"
+    assert payload["status"] == "pending", (
+        f"new task must be status=pending; got {payload['status']!r}"
+    )
+    assert TASK_ID_RE.match(payload["id"]), (
+        f"--json payload id must match 8-hex pattern; got {payload['id']!r}"
+    )
+
+
+# NFR-09 (boundary)
+def test_fr02_inprocess_submit_at_length_limit_accepted(taskq_home):
+    """In-process: a command whose length is exactly 1000 chars is
+    accepted (length cap is strict-greater-than, SPEC §3 line 81).
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    # `echo ` (5) + 995 x chars = exactly 1000 chars.
+    boundary_cmd = "echo " + ("x" * 995)
+    assert len(boundary_cmd) == 1000
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_submit([boundary_cmd])
+    assert rc == 0, (
+        f"1000-char command must be accepted; got exit {rc}; "
+        f"stderr={stderr!r}"
+    )
+
+
+# NFR-09 (boundary)
+def test_fr02_inprocess_submit_over_length_limit_rejected(taskq_home):
+    """In-process: a command whose length is 1001 chars is rejected
+    with exit 2 and a length-cap message.
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    over_cmd = "echo " + ("x" * 996)
+    assert len(over_cmd) == 1001
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_submit([over_cmd])
+    assert rc == 2, f"1001-char command must be rejected; got exit {rc}"
+    assert "submit:" in stderr
+    assert "length" in stderr.lower() or "exceeds" in stderr.lower(), (
+        f"length-cap error must mention length/exceeds; got {stderr!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.cli.commands.run` — in-process error / --all paths
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_run_no_args_returns_exit_2(taskq_home):
+    """In-process: `commands.run([])` (no id, no --all) returns 2 with a
+    stderr marker — the user-facing usage error.
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_run([], use_disk=True)
+    assert rc == 2, f"no-args run must exit 2; got {rc}"
+    assert "run:" in stderr, (
+        f"usage error must be prefixed with 'run:'; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_run_task_not_found_returns_exit_2(taskq_home):
+    """In-process: `commands.run(["deadbeef"])` returns 2 with a
+    `run: task 'deadbeef' not found` stderr marker.
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_run(["deadbeef"], use_disk=True)
+    assert rc == 2, f"missing-id run must exit 2; got {rc}"
+    assert "run:" in stderr
+    assert "deadbeef" in stderr, (
+        f"missing-id error must echo the id; got {stderr!r}"
+    )
+    assert "not found" in stderr, (
+        f"missing-id error must say 'not found'; got {stderr!r}"
+    )
+
+
+# NFR-13 (concurrency, SAD-forced) / NFR-09
+def test_fr02_inprocess_run_all_executes_pending(taskq_home):
+    """In-process: `commands.run(["--all"])` executes every pending task
+    via the thread pool and returns 0.
+    """
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        get_store,
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(command="echo a"))
+    store.add(Task(command="echo b"))
+
+    rc, stdout, stderr = _capture_run(["--all"], use_disk=True)
+    assert rc == 0, f"run --all must exit 0; stderr={stderr!r}"
+
+    reset_store_cache()
+    store = get_store(use_disk=True)
+    finished = store.load()
+    assert len(finished) == 2
+    assert all(t.status == "done" for t in finished), (
+        f"both tasks must be status=done; got "
+        f"{[t.status for t in finished]!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_run_all_with_no_pending_returns_zero(taskq_home):
+    """In-process: `commands.run(["--all"])` with no pending tasks returns
+    0 immediately (the `_run_all` short-circuit).
+    """
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, stdout, stderr = _capture_run(["--all"], use_disk=True)
+    assert rc == 0, f"empty run --all must exit 0; stderr={stderr!r}"
+
+
+# NFR-09
+def test_fr02_inprocess_timeout_budget_invalid_value_falls_back(
+    taskq_home, monkeypatch
+):
+    """In-process: `_timeout_budget()` returns `DEFAULT_TASK_TIMEOUT` (10.0)
+    when `TASKQ_TASK_TIMEOUT` is set to a non-numeric value (the
+    `except ValueError` branch).
+    """
+    from taskq_plus.cli import commands  # local import — sys.path injection is per-test
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    monkeypatch.setenv("TASKQ_TASK_TIMEOUT", "not-a-number")
+    reset_store_cache()
+    store = make_disk_store()
+    task = store.add(Task(command="echo hi"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run([task.id], use_disk=True)
+
+    assert rc == 0, (
+        f"invalid TASKQ_TASK_TIMEOUT must fall back to default and "
+        f"let echo hi complete; got exit {rc}; stderr={err.getvalue()!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_max_workers_invalid_value_falls_back(
+    taskq_home, monkeypatch
+):
+    """In-process: `_max_workers()` returns `DEFAULT_MAX_WORKERS` (4) when
+    `TASKQ_MAX_WORKERS` is set to a non-integer value (the
+    `except ValueError` branch).
+    """
+    from taskq_plus.cli import commands  # local import — sys.path injection is per-test
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "not-a-number")
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(command="echo a"))
+    store.add(Task(command="echo b"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run(["--all"], use_disk=True)
+
+    assert rc == 0, (
+        f"invalid TASKQ_MAX_WORKERS must fall back to default and let "
+        f"run --all complete; got exit {rc}; stderr={err.getvalue()!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_max_workers_explicit_value(taskq_home, monkeypatch):
+    """In-process: a valid integer `TASKQ_MAX_WORKERS` is honored by
+    `_max_workers()` (the int-conversion success branch).
+    """
+    from taskq_plus.cli import commands  # local import — sys.path injection is per-test
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "2")
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(command="echo a"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run(["--all"], use_disk=True)
+
+    assert rc == 0, (
+        f"explicit TASKQ_MAX_WORKERS=2 must let run --all complete; "
+        f"got exit {rc}; stderr={err.getvalue()!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.executor._tail` — long-output truncation
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_executor_tail_truncates_long_output():
+    """`executor._tail(text)` returns the last `TAIL_CHARS` (2000) chars
+    of `text` when the input is longer than `TAIL_CHARS`. This is the
+    long-output branch of the executor's stdout/stderr shaper.
+    """
+    from taskq_plus.service import executor
+
+    long_text = "x" * 2500
+    out = executor._tail(long_text)
+    assert out is not None
+    assert len(out) == executor.TAIL_CHARS, (
+        f"long output must be truncated to {executor.TAIL_CHARS} chars; "
+        f"got {len(out)}"
+    )
+    assert out == "x" * executor.TAIL_CHARS, (
+        "truncated output must be the *last* TAIL_CHARS chars"
+    )
+
+
+# NFR-09
+def test_fr02_executor_run_task_long_output_is_truncated_in_result():
+    """`run_task` records the truncated `stdout_tail` for a command whose
+    output exceeds `TAIL_CHARS`. End-to-end check that `_tail` is wired
+    into the result path (defends against accidental removal).
+    """
+    from taskq_plus.models.task import Task
+    from taskq_plus.service import executor
+
+    # `python -c "print('x'*2500)"` emits exactly 2500 x chars + newline,
+    # so `stdout_tail` is the last 2000 chars after `_tail`.
+    task = Task(command="python -c \"print('x'*2500)\"")
+    result = executor.run_task(task, timeout=10.0)
+
+    assert result.status == "done"
+    assert result.exit_code == 0
+    assert result.stdout_tail is not None
+    assert len(result.stdout_tail) <= executor.TAIL_CHARS, (
+        f"stdout_tail must be <= TAIL_CHARS; got {len(result.stdout_tail)}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `commands._format_validation_error` — defensive empty-errors branch
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_format_validation_error_handles_empty_errors_list():
+    """`_format_validation_error` returns `"validation failed"` when
+    `err.errors()` yields an empty list. This is the defensive fallback
+    branch (line 118) — pydantic v2 always populates the list, but the
+    guard is there so the CLI never crashes on a malformed error.
+    """
+    from unittest.mock import MagicMock
+
+    from pydantic import ValidationError
+
+    from taskq_plus.cli import commands
+
+    fake_err = MagicMock(spec=ValidationError)
+    fake_err.errors.return_value = []
+
+    msg = commands._format_validation_error(fake_err)
+    assert msg == "validation failed", (
+        f"empty-errors branch must return 'validation failed'; got {msg!r}"
+    )

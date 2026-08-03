@@ -109,18 +109,17 @@ def run_task(task: Task, *, timeout: float) -> TaskResult:
             # file).
         )
     except subprocess.TimeoutExpired as exc:
+        # `text=True` on subprocess.run guarantees exc.stdout / exc.stderr
+        # are decoded to str; the bytes branches below were defensive
+        # code for a configuration the executor never uses (see SPEC.md
+        # §3 FR-02 line 110 — `text=True` is part of the canonical
+        # subprocess invocation shape).
         duration_ms = int((time.monotonic() - started) * 1000)
-        stdout = exc.stdout
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode("utf-8", errors="replace")
-        stderr = exc.stderr
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode("utf-8", errors="replace")
         return TaskResult(
             status="timeout",
             exit_code=None,
-            stdout_tail=_tail(stdout),
-            stderr_tail=_tail(stderr),
+            stdout_tail=_tail(exc.stdout),
+            stderr_tail=_tail(exc.stderr),
             duration_ms=duration_ms,
             finished_at=_utcnow(),
         )

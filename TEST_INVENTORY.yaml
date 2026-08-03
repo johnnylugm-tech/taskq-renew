@@ -1,20 +1,527 @@
-# TEST_INVENTORY.yaml — P1 Naming Authority
-# Maps every FR to expected test function names. These are the AUTHORITATIVE names
-# that derive_test_cases.md preserves in TEST_SPEC.md (P2 single source of truth).
-# Specified per FR and per test category (unit/integration/cross_cutting).
-# If no name is specified for a category, derive_test_cases.md fills the gap with
-# names derived via the 7-Question Protocol.
+# TEST_INVENTORY.yaml — P1 Test Contract Inventory
+# Every entry is an independent test contract derived from SRS.md acceptance criteria.
+# Naming authority for Phase 2 TEST_SPEC.md and Phase 3 test implementation.
 format_version: "1.1"
+source:
+  srs: "01-requirements/SRS.md"
+  traceability_matrix: "01-requirements/TRACEABILITY_MATRIX.md"
+  status: "PLANNED"
 
-fr_tests:
-  FR-01:
-    unit:
-      - test_fr01_example_unit
-    integration:
-      - test_fr01_example_integration
+test_inventory:
+  total_test_cases: 74
+  tests:
+    - tc_id: TC-FR01-01
+      fr_id: FR-01
+      ac_id: AC-01-1
+      test_function: test_fr01_submit_valid_command
+      layer: integration
+      asserts: ["exit_code == 0", "stdout is an 8-hex task id"]
+    - tc_id: TC-FR01-02
+      fr_id: FR-01
+      ac_id: AC-01-2
+      test_function: test_fr01_submit_empty_command_rejected
+      layer: integration
+      asserts: ["exit_code == 2"]
+    - tc_id: TC-FR01-03
+      fr_id: FR-01
+      ac_id: AC-01-3
+      test_function: test_fr01_submit_injection_command_rejected
+      layer: security
+      cross_ref_nfrs: [NFR-02]
+      asserts: ["exit_code == 2", "the injection character is rejected"]
+    - tc_id: TC-FR01-04
+      fr_id: FR-01
+      ac_id: AC-01-4
+      test_function: test_fr01_submit_duplicate_name_rejected
+      layer: integration
+      asserts: ["second submission exit_code == 2"]
+    - tc_id: TC-FR01-05
+      fr_id: FR-01
+      ac_id: AC-01-5
+      test_function: test_fr01_submit_unknown_dependency_rejected
+      layer: integration
+      asserts: ["exit_code == 2", "stderr contains unknown dependency"]
 
-cross_cutting:
-  security:
-    - test_security_example
-  deployment:
-    - test_deployment_example
+    - tc_id: TC-FR02-01
+      fr_id: FR-02
+      ac_id: AC-02-1
+      test_function: test_fr02_run_done_reproduces_result
+      layer: integration
+      asserts: ["exit_code matches stored result", "stdout_tail matches stored result"]
+    - tc_id: TC-FR02-02
+      fr_id: FR-02
+      ac_id: AC-02-2
+      test_function: test_fr02_run_timeout_returns_exit_4
+      layer: integration
+      cross_ref_nfrs: [NFR-02]
+      asserts: ["status == timeout", "exit_code == 4"]
+    - tc_id: TC-FR02-03
+      fr_id: FR-02
+      ac_id: AC-02-3
+      test_function: test_fr02_source_contains_no_shell_true
+      layer: security
+      cross_ref_nfrs: [NFR-02]
+      asserts: ["grep reports zero shell=True hits"]
+    - tc_id: TC-FR02-04
+      fr_id: FR-02
+      ac_id: AC-02-4
+      test_function: test_fr02_run_all_concurrent_write_is_atomic
+      layer: error_handling
+      cross_ref_nfrs: [NFR-03]
+      asserts: ["parallel runs do not corrupt tasks.json", "post-kill tasks.json parses as valid JSON"]
+
+    - tc_id: TC-FR03-01
+      fr_id: FR-03
+      ac_id: AC-03-1
+      test_function: test_fr03_breaker_open_rejects_run
+      layer: integration
+      asserts: ["next run exit_code == 3", "stderr contains breaker open", "no subprocess is spawned"]
+    - tc_id: TC-FR03-02
+      fr_id: FR-03
+      ac_id: AC-03-2
+      test_function: test_fr03_breaker_cooldown_closes_breaker
+      layer: integration
+      asserts: ["run succeeds after cooldown", "breaker state == CLOSED", "failure count == 0"]
+    - tc_id: TC-FR03-03
+      fr_id: FR-03
+      ac_id: AC-03-3
+      test_function: test_fr03_breaker_recovery_within_cooldown_bound
+      layer: performance
+      cross_ref_nfrs: [NFR-03]
+      asserts: ["recovery time <= TASKQ_BREAKER_COOLDOWN + 1 second"]
+
+    - tc_id: TC-FR04-01
+      fr_id: FR-04
+      ac_id: AC-04-1
+      test_function: test_fr04_cached_run_replays_done_result
+      layer: integration
+      asserts: ["cached == true", "prior exit_code and stdout_tail are returned", "no subprocess is spawned"]
+    - tc_id: TC-FR04-02
+      fr_id: FR-04
+      ac_id: AC-04-2
+      test_function: test_fr04_expired_cache_reexecutes_command
+      layer: integration
+      asserts: ["expired cache causes subprocess execution"]
+
+    - tc_id: TC-FR05-01
+      fr_id: FR-05
+      ac_id: AC-05-1
+      test_function: test_fr05_status_json_contains_all_task_fields
+      layer: integration
+      asserts: ["stdout is one parseable JSON object", "all submit-time fields are present"]
+    - tc_id: TC-FR05-02
+      fr_id: FR-05
+      ac_id: AC-05-2
+      test_function: test_fr05_clear_removes_all_data_files
+      layer: integration
+      asserts: ["clear exit_code == 0", "tasks.json, breaker.json, cache.json, and audit.jsonl are removed"]
+    - tc_id: TC-FR05-03
+      fr_id: FR-05
+      ac_id: AC-05-3
+      test_function: test_fr05_all_exit_codes_are_reachable
+      layer: integration
+      asserts: ["each of exit codes 0, 1, 2, 3, 4, 5, and 6 is observed on a documented path"]
+
+    - tc_id: TC-FR06-01
+      fr_id: FR-06
+      ac_id: AC-06-1
+      test_function: test_fr06_run_all_respects_dependency_order_and_blocks
+      layer: integration
+      asserts: ["dependent task runs after a done prerequisite", "non-done prerequisite makes dependent task blocked"]
+    - tc_id: TC-FR06-02
+      fr_id: FR-06
+      ac_id: AC-06-2
+      test_function: test_fr06_cycle_submission_returns_cycle_path
+      layer: integration
+      asserts: ["exit_code == 5", "stderr contains the cycle path"]
+    - tc_id: TC-FR06-03
+      fr_id: FR-06
+      ac_id: AC-06-3
+      test_function: test_fr06_dag_depth_cap_rejects_deep_chain
+      layer: integration
+      asserts: ["exit_code == 5", "stderr contains dependency chain too deep"]
+
+    - tc_id: TC-FR07-01
+      fr_id: FR-07
+      ac_id: AC-07-1
+      test_function: test_fr07_plugin_path_form_is_rejected
+      layer: security
+      cross_ref_nfrs: [NFR-02]
+      asserts: ["exit_code == 6", "stderr names the rejected module"]
+    - tc_id: TC-FR07-02
+      fr_id: FR-07
+      ac_id: AC-07-2
+      test_function: test_fr07_plugin_error_does_not_abort_task
+      layer: integration
+      asserts: ["task reaches a final status", "audit.jsonl contains plugin_error"]
+    - tc_id: TC-FR07-03
+      fr_id: FR-07
+      ac_id: AC-07-3
+      test_function: test_fr07_plugin_disables_after_three_failures
+      layer: integration
+      asserts: ["plugin is disabled after three consecutive pre_run failures", "audit trail records disablement"]
+
+    - tc_id: TC-FR08-01
+      fr_id: FR-08
+      ac_id: AC-08-1
+      test_function: test_fr08_submit_run_audit_events_share_correlation_id
+      layer: integration
+      asserts: ["audit has submit, run_start, and run_end events", "those events share one correlation_id"]
+    - tc_id: TC-FR08-02
+      fr_id: FR-08
+      ac_id: AC-08-2
+      test_function: test_fr08_exports_agree_and_escape_csv_fields
+      layer: integration
+      asserts: ["json, csv, and md have equal task counts and field sets", "CSV escapes commas and quotes"]
+
+    - tc_id: TC-NFR01-01
+      fr_id: NFR-01
+      ac_id: AC-01-1
+      test_function: test_nfr01_submit_status_p95_under_50ms
+      layer: performance
+      asserts: ["submit plus status p95 < 50 milliseconds"]
+    - tc_id: TC-NFR01-02
+      fr_id: NFR-01
+      ac_id: AC-01-2
+      test_function: test_nfr01_topological_sort_200_tasks_p95_under_200ms
+      layer: performance
+      asserts: ["200-task topological sort p95 < 200 milliseconds"]
+
+    - tc_id: TC-NFR02-01
+      fr_id: NFR-02
+      ac_id: AC-02-1
+      test_function: test_nfr02_forbidden_execution_patterns_absent
+      layer: security
+      cross_ref_frs: [FR-02, FR-07]
+      asserts: ["grep finds zero shell=True, eval(, and exec( matches"]
+    - tc_id: TC-NFR02-02a
+      fr_id: NFR-02
+      ac_id: AC-02-2
+      test_function: test_nfr02_injection_semicolon_rejected
+      layer: security
+      cross_ref_frs: [FR-01]
+      asserts: ["semicolon input is rejected"]
+    - tc_id: TC-NFR02-02b
+      fr_id: NFR-02
+      ac_id: AC-02-2
+      test_function: test_nfr02_injection_pipe_rejected
+      layer: security
+      cross_ref_frs: [FR-01]
+      asserts: ["pipe input is rejected"]
+    - tc_id: TC-NFR02-02c
+      fr_id: NFR-02
+      ac_id: AC-02-2
+      test_function: test_nfr02_injection_ampersand_rejected
+      layer: security
+      cross_ref_frs: [FR-01]
+      asserts: ["ampersand input is rejected"]
+    - tc_id: TC-NFR02-02d
+      fr_id: NFR-02
+      ac_id: AC-02-2
+      test_function: test_nfr02_injection_dollar_rejected
+      layer: security
+      cross_ref_frs: [FR-01]
+      asserts: ["dollar input is rejected"]
+    - tc_id: TC-NFR02-02e
+      fr_id: NFR-02
+      ac_id: AC-02-2
+      test_function: test_nfr02_injection_greater_than_rejected
+      layer: security
+      cross_ref_frs: [FR-01]
+      asserts: ["greater-than input is rejected"]
+    - tc_id: TC-NFR02-02f
+      fr_id: NFR-02
+      ac_id: AC-02-2
+      test_function: test_nfr02_injection_less_than_rejected
+      layer: security
+      cross_ref_frs: [FR-01]
+      asserts: ["less-than input is rejected"]
+    - tc_id: TC-NFR02-02g
+      fr_id: NFR-02
+      ac_id: AC-02-2
+      test_function: test_nfr02_injection_backtick_rejected
+      layer: security
+      cross_ref_frs: [FR-01]
+      asserts: ["backtick input is rejected"]
+    - tc_id: TC-NFR02-03
+      fr_id: NFR-02
+      ac_id: AC-02-3
+      test_function: test_nfr02_bandit_has_no_high_or_medium_findings
+      layer: security
+      asserts: ["bandit exit_code == 0", "HIGH findings == 0", "MEDIUM findings == 0"]
+    - tc_id: TC-NFR02-04
+      fr_id: NFR-02
+      ac_id: AC-02-4
+      test_function: test_nfr02_plugin_allowlist_rejects_path_module
+      layer: security
+      cross_ref_frs: [FR-07]
+      asserts: ["path-form plugin exits 6", "stderr names rejected module"]
+
+    - tc_id: TC-NFR03-01a
+      fr_id: NFR-03
+      ac_id: AC-03-1
+      test_function: test_nfr03_tasks_file_survives_mid_write_kill
+      layer: error_handling
+      asserts: ["tasks.json parses after kill -9"]
+    - tc_id: TC-NFR03-01b
+      fr_id: NFR-03
+      ac_id: AC-03-1
+      test_function: test_nfr03_breaker_file_survives_mid_write_kill
+      layer: error_handling
+      asserts: ["breaker.json parses after kill -9"]
+    - tc_id: TC-NFR03-01c
+      fr_id: NFR-03
+      ac_id: AC-03-1
+      test_function: test_nfr03_cache_file_survives_mid_write_kill
+      layer: error_handling
+      asserts: ["cache.json parses after kill -9"]
+    - tc_id: TC-NFR03-01d
+      fr_id: NFR-03
+      ac_id: AC-03-1
+      test_function: test_nfr03_audit_file_survives_mid_write_kill
+      layer: error_handling
+      asserts: ["audit.jsonl remains valid JSON Lines after kill -9"]
+    - tc_id: TC-NFR03-02
+      fr_id: NFR-03
+      ac_id: AC-03-2
+      test_function: test_nfr03_exception_handling_scan_has_no_swallowing
+      layer: error_handling
+      asserts: ["broad_swallow == 0", "bare_except == 0", "except_base_exception == 0"]
+    - tc_id: TC-NFR03-03
+      fr_id: NFR-03
+      ac_id: AC-03-3
+      test_function: test_nfr03_breaker_recovery_meets_timing_bound
+      layer: error_handling
+      cross_ref_frs: [FR-03]
+      asserts: ["breaker is CLOSED within cooldown plus one second"]
+
+    - tc_id: TC-NFR04-01
+      fr_id: NFR-04
+      ac_id: AC-04-1
+      test_function: test_nfr04_secret_is_redacted_from_audit_log
+      layer: security
+      cross_ref_frs: [FR-08]
+      asserts: ["audit.jsonl contains zero plaintext sk- matches"]
+    - tc_id: TC-NFR04-02
+      fr_id: NFR-04
+      ac_id: AC-04-2
+      test_function: test_nfr04_secret_is_redacted_from_task_results
+      layer: security
+      cross_ref_frs: [FR-02]
+      asserts: ["tasks.json contains zero plaintext sk- matches"]
+    - tc_id: TC-NFR04-03a
+      fr_id: NFR-04
+      ac_id: AC-04-3
+      test_function: test_nfr04_token_secret_is_redacted
+      layer: security
+      asserts: ["token= secret is replaced with [REDACTED]"]
+    - tc_id: TC-NFR04-03b
+      fr_id: NFR-04
+      ac_id: AC-04-3
+      test_function: test_nfr04_bearer_secret_is_redacted
+      layer: security
+      asserts: ["Bearer secret is replaced with [REDACTED]"]
+
+    - tc_id: TC-NFR05-01
+      fr_id: NFR-05
+      ac_id: AC-05-1
+      test_function: test_nfr05_public_api_docstrings_are_complete
+      layer: documentation
+      asserts: ["public_with_docstring / total_public == 1.0"]
+    - tc_id: TC-NFR05-02
+      fr_id: NFR-05
+      ac_id: AC-05-2
+      test_function: test_nfr05_public_docstrings_include_requirement_tags
+      layer: documentation
+      asserts: ["every public docstring contains an FR or NFR tag"]
+
+    - tc_id: TC-NFR06-01
+      fr_id: NFR-06
+      ac_id: AC-06-1
+      test_function: test_nfr06_import_linter_passes
+      layer: architecture
+      asserts: ["lint-imports exit_code == 0"]
+    - tc_id: TC-NFR06-02
+      fr_id: NFR-06
+      ac_id: AC-06-2
+      test_function: test_nfr06_layer_contract_and_config_independence_declared
+      layer: architecture
+      asserts: [".importlinter declares cli > observability > service > storage > models", "config is independent"]
+    - tc_id: TC-NFR06-03
+      fr_id: NFR-06
+      ac_id: AC-06-3
+      test_function: test_nfr06_crg_cohesion_setting_remains_default
+      layer: architecture
+      asserts: ["crg_cohesion_healthy equals its default value"]
+
+    - tc_id: TC-NFR07-01
+      fr_id: NFR-07
+      ac_id: AC-07-1
+      test_function: test_nfr07_runtime_requirements_are_exactly_pinned
+      layer: compliance
+      asserts: ["requirements.txt has no >=, ~=, or unpinned runtime dependency"]
+    - tc_id: TC-NFR07-02
+      fr_id: NFR-07
+      ac_id: AC-07-2
+      test_function: test_nfr07_installed_dependency_licenses_are_allowlisted
+      layer: compliance
+      asserts: ["every installed dependency license is MIT, BSD-2-Clause, BSD-3-Clause, or Apache-2.0"]
+    - tc_id: TC-NFR07-03
+      fr_id: NFR-07
+      ac_id: AC-07-3
+      test_function: test_nfr07_sbom_exists_with_required_dependency_fields
+      layer: compliance
+      asserts: ["08-config/SBOM.json parses", "every entry has name, version, and license"]
+
+    - tc_id: TC-NFR08-01
+      fr_id: NFR-08
+      ac_id: AC-08-1
+      test_function: test_nfr08_mutation_testing_feature_is_enabled
+      layer: mutation
+      asserts: ["features.mutation_testing == true"]
+    - tc_id: TC-NFR08-02
+      fr_id: NFR-08
+      ac_id: AC-08-2
+      test_function: test_nfr08_mutation_score_meets_seventy_percent
+      layer: mutation
+      asserts: ["mutation-test-score exit_code == 0", "score >= 70"]
+    - tc_id: TC-NFR08-03
+      fr_id: NFR-08
+      ac_id: AC-08-3
+      test_function: test_nfr08_mutation_scope_has_execution_budget_rationale
+      layer: mutation
+      asserts: ["config documents service and storage scope", "config documents execution-time budget rationale"]
+
+    - tc_id: TC-NFR09-01
+      fr_id: NFR-09
+      ac_id: AC-09-1
+      test_function: test_nfr09_full_suite_has_zero_skipped_tests
+      layer: meta
+      asserts: ["pytest reports no skipped tests"]
+    - tc_id: TC-NFR09-02
+      fr_id: NFR-09
+      ac_id: AC-09-2
+      test_function: test_nfr09_every_test_has_an_assertion
+      layer: meta
+      asserts: ["ast-assertions zero_assert == 0"]
+    - tc_id: TC-NFR09-03a
+      fr_id: NFR-09
+      ac_id: AC-09-3
+      test_function: test_nfr09_pytest_skip_calls_are_absent
+      layer: meta
+      asserts: ["functional pytest.skip calls == 0"]
+    - tc_id: TC-NFR09-03b
+      fr_id: NFR-09
+      ac_id: AC-09-3
+      test_function: test_nfr09_skip_markers_are_absent
+      layer: meta
+      asserts: ["functional pytest.mark.skip uses == 0"]
+    - tc_id: TC-NFR09-03c
+      fr_id: NFR-09
+      ac_id: AC-09-3
+      test_function: test_nfr09_skipif_markers_are_absent
+      layer: meta
+      asserts: ["functional skipif uses == 0"]
+    - tc_id: TC-NFR09-03d
+      fr_id: NFR-09
+      ac_id: AC-09-3
+      test_function: test_nfr09_xfail_markers_are_absent
+      layer: meta
+      asserts: ["functional xfail uses == 0"]
+    - tc_id: TC-NFR09-04
+      fr_id: NFR-09
+      ac_id: AC-09-4
+      test_function: test_nfr09_harness_does_not_exclude_tests
+      layer: meta
+      asserts: ["harness commands do not pass --ignore, --deselect, or collect_ignore excluding tests, nor pass -k with a pattern that removes passing tests"]
+    - tc_id: TC-NFR09-05
+      fr_id: NFR-09
+      ac_id: AC-09-5
+      test_function: test_nfr09_verified_rows_have_passing_test_evidence
+      layer: meta
+      asserts: ["every VERIFIED matrix row has a paired passing test invocation"]
+
+    - tc_id: TC-NFR10-01
+      fr_id: NFR-10
+      ac_id: AC-10-1
+      test_function: test_nfr10_integration_coverage_reaches_eighty_percent
+      layer: integration
+      asserts: ["integration coverage TOTAL >= 80 percent"]
+    - tc_id: TC-NFR10-02
+      fr_id: NFR-10
+      ac_id: AC-10-2
+      test_function: test_nfr10_integration_suite_drives_cli_scenarios
+      layer: integration
+      asserts: ["integration tests use CliRunner or python -m taskq_plus", "required submit/run/status, DAG, breaker, cache, plugin, and export scenarios are covered"]
+
+    - tc_id: TC-NFR11-01
+      fr_id: NFR-11
+      ac_id: AC-11-1
+      test_function: test_nfr11_maintainability_index_meets_eighty
+      layer: readability
+      asserts: ["mean maintainability index >= 80"]
+    - tc_id: TC-NFR11-02
+      fr_id: NFR-11
+      ac_id: AC-11-2
+      test_function: test_nfr11_function_complexity_is_at_most_ten
+      layer: readability
+      asserts: ["every function cyclomatic complexity <= 10"]
+    - tc_id: TC-NFR11-03
+      fr_id: NFR-11
+      ac_id: AC-11-3
+      test_function: test_nfr11_source_files_are_at_most_four_hundred_lines
+      layer: readability
+      asserts: ["no source file exceeds 400 lines"]
+    - tc_id: TC-NFR11-04
+      fr_id: NFR-11
+      ac_id: AC-11-4
+      test_function: test_nfr11_source_directories_have_at_most_fifteen_files
+      layer: readability
+      asserts: ["every source directory contains at most 15 files"]
+
+    - tc_id: TC-NFR12-01
+      fr_id: NFR-12
+      ac_id: AC-12-1
+      test_function: test_nfr12_verify_system_exits_zero
+      layer: system
+      asserts: ["make verify-system exit_code == 0"]
+    - tc_id: TC-NFR12-02
+      fr_id: NFR-12
+      ac_id: AC-12-2
+      test_function: test_nfr12_verify_system_prints_pass_marker
+      layer: system
+      asserts: ["stdout contains verify-system: PASS"]
+
+  by_fr:
+    FR-01: {tc_count: 5}
+    FR-02: {tc_count: 4}
+    FR-03: {tc_count: 3}
+    FR-04: {tc_count: 2}
+    FR-05: {tc_count: 3}
+    FR-06: {tc_count: 3}
+    FR-07: {tc_count: 3}
+    FR-08: {tc_count: 2}
+    NFR-01: {tc_count: 2}
+    NFR-02: {tc_count: 10}
+    NFR-03: {tc_count: 6}
+    NFR-04: {tc_count: 4}
+    NFR-05: {tc_count: 2}
+    NFR-06: {tc_count: 3}
+    NFR-07: {tc_count: 3}
+    NFR-08: {tc_count: 3}
+    NFR-09: {tc_count: 8}
+    NFR-10: {tc_count: 2}
+    NFR-11: {tc_count: 4}
+    NFR-12: {tc_count: 2}
+  by_layer:
+    integration: {count: 22}
+    security: {count: 17}
+    error_handling: {count: 7}
+    performance: {count: 3}
+    architecture: {count: 3}
+    compliance: {count: 3}
+    mutation: {count: 3}
+    documentation: {count: 2}
+    meta: {count: 8}
+    readability: {count: 4}
+    system: {count: 2}

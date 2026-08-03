@@ -1,4 +1,4 @@
-"""[FR-01/FR-02] CLI command handlers.
+"""[FR-01/FR-02/FR-05] CLI command handlers.
 
 The `submit` function is the canonical entry point that the test suite
 calls in-process (`taskq_plus.cli.commands.submit(argv)`); the
@@ -25,24 +25,40 @@ Citations:
     SPEC.md §8 lines 406-408 — canonical acceptance commands.
     SPEC.md §3 FR-02 lines 105-118 — execution state machine.
     SPEC.md §3 FR-02 line 120 — single-task timeout → exit 4.
+    SPEC.md §3 FR-05 lines 132-137 — `status` / `list` / `graph` /
+        `plugins` / `clear` command surface.
+    SPEC.md §3 FR-05 line 139 — global `--json` single-line output.
+    SPEC.md §3 FR-05 line 140 — canonical exit-code roster.
+    SPEC.md §5.2 lines 311-314 — the four `$TASKQ_HOME` data files.
+    SPEC.md §7 line 384 — unknown task id → exit 2, stderr
+        `unknown task: <id>`.
+    SPEC.md §7 line 388 — 相依圖存在循環 → exit 5 + cycle path.
+    SPEC.md §7 line 389 — 深度超限 → exit 5, stderr
+        `dependency chain too deep: <n> > <max>`.
+    SPEC.md §7 line 390 — plugin 名稱非法 → exit 6, stderr
+        `plugin load failed: <name>: <reason>`.
+    SPEC.md §7 line 392 — `tasks.json` 損壞 → exit 1, stderr
+        `store corrupted` (不靜默重建).
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
 
+from taskq_plus.config import taskq_home
 from taskq_plus.models.task import Task, TaskSubmission
 from taskq_plus.service.breaker import STATE_OPEN
 from taskq_plus.service.cache import cache_ttl, lookup as cache_lookup, record as cache_record
 from taskq_plus.service.executor import run_task
 from taskq_plus.storage.breaker_store import make_breaker_store
-from taskq_plus.storage.task_store import get_store
+from taskq_plus.storage.task_store import get_store, reset_store_cache
 
 
 #: [FR-02] Default per-task timeout (seconds) when `TASKQ_TASK_TIMEOUT`
@@ -51,6 +67,23 @@ DEFAULT_TASK_TIMEOUT: float = 10.0
 
 #: [FR-02] Default `max_workers` for `--all`. SPEC §3 FR-02 line 122.
 DEFAULT_MAX_WORKERS: int = 4
+
+#: [FR-05] Every data file `clear` wipes from `$TASKQ_HOME`.
+#: SPEC §5.2 lines 311-314 enumerate exactly these four.
+DATA_FILENAMES: Tuple[str, ...] = (
+    "tasks.json",
+    "breaker.json",
+    "cache.json",
+    "audit.jsonl",
+)
+
+#: [FR-05/FR-07] Plugin module-name whitelist. A spec that does not match
+#: is a path or URL form and must be rejected (SPEC §3 FR-07 line 157).
+PLUGIN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+
+#: [FR-05/FR-06] Default dependency-chain depth cap when
+#: `TASKQ_MAX_DAG_DEPTH` is unset (SPEC §5.1 line 302).
+DEFAULT_MAX_DAG_DEPTH: int = 32
 
 
 def _build_submit_parser() -> argparse.ArgumentParser:
@@ -375,4 +408,386 @@ def _run_all(store) -> int:
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         for task in pending:
             pool.submit(_worker, task)
+    return 0
+
+
+# ===========================================================================
+# [FR-05] Query / inspection / maintenance handlers
+# ===========================================================================
+
+
+def _build_status_parser() -> argparse.ArgumentParser:
+    """[FR-05] Build the `status` argument parser.
+
+    Citations:
+        SPEC.md §3 FR-05 line 132 — `status <id>` 輸出該任務全欄位.
+        SPEC.md §3 FR-05 line 139 — 全域 flag `--json`.
+    """
+    parser = argparse.ArgumentParser(
+        prog="taskq status",
+        description="Print every stored field of one task.",
+    )
+    parser.add_argument("task_id", help="Task id to inspect.")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Emit the task as a single-line JSON object.",
+    )
+    return parser
+
+
+def status(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
+    """[FR-05] Print every field of one task; return an exit code.
+
+    `argv` is the token list *after* the leading `status` keyword. With
+    `--json` the whole record is emitted as one parseable line (the
+    machine-readable channel of SPEC §3 FR-05 line 139); without it the
+    same fields are printed as `key: value` lines.
+
+    The payload is `Task.model_dump(mode="json")`, so it carries every
+    field the submission API persists (`id`, `command`, `name`,
+    `status`, `created_at`, `depends_on`) plus the FR-02 result fields.
+    Dumping the model rather than hand-listing keys is deliberate: a
+    field added to `Task` cannot silently fall out of the `--json`
+    surface.
+
+    Returns:
+        0 — task found and printed.
+        2 — unknown task id.
+
+    Citations:
+        SPEC.md §3 FR-05 line 132 — 輸出該任務全欄位.
+        SPEC.md §3 FR-05 line 139 — `--json` 單行 JSON.
+        SPEC.md §7 line 384 — unknown task id → exit 2, stderr
+            `unknown task: <id>`.
+    """
+    parser = _build_status_parser()
+    args = parser.parse_args(list(argv) if argv is not None else [])
+
+    store = get_store(use_disk=use_disk)
+    task = store.find(args.task_id)
+    if task is None:
+        print(f"unknown task: {args.task_id}", file=sys.stderr)
+        return 2
+
+    payload = task.model_dump(mode="json")
+    if args.as_json:
+        print(json.dumps(payload, ensure_ascii=False))
+    else:
+        for key in payload:
+            print(f"{key}: {payload[key]}")
+    return 0
+
+
+def _build_list_parser() -> argparse.ArgumentParser:
+    """[FR-05] Build the `list` argument parser.
+
+    Citations:
+        SPEC.md §3 FR-05 line 133 — `list [--status S]`.
+    """
+    parser = argparse.ArgumentParser(
+        prog="taskq list",
+        description="List stored tasks.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Emit the task list as a single-line JSON array.",
+    )
+    return parser
+
+
+def list_tasks(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
+    """[FR-05] List stored tasks; return an exit code.
+
+    A corrupted `tasks.json` surfaces as `store corrupted` on stderr
+    and exit 1 rather than a silent rebuild — the store deliberately
+    lets `json.JSONDecodeError` escape `load()` so this handler can
+    make the corruption visible (SPEC §7 line 392).
+
+    Returns:
+        0 — tasks listed.
+        1 — `tasks.json` is not valid JSON.
+
+    Citations:
+        SPEC.md §3 FR-05 line 133 — `list` 列出任務.
+        SPEC.md §3 FR-05 line 140 — `1` 其他內部錯誤.
+        SPEC.md §7 line 392 — `tasks.json` 損壞 → exit 1, stderr
+            `store corrupted` (不靜默重建).
+    """
+    parser = _build_list_parser()
+    args = parser.parse_args(list(argv) if argv is not None else [])
+
+    store = get_store(use_disk=use_disk)
+    try:
+        tasks = store.all()
+    except json.JSONDecodeError:
+        print("store corrupted", file=sys.stderr)
+        return 1
+
+    if args.as_json:
+        print(json.dumps([t.model_dump(mode="json") for t in tasks], ensure_ascii=False))
+    else:
+        for task in tasks:
+            print(f"{task.id}\t{task.status}\t{task.command}")
+    return 0
+
+
+def clear(argv: Optional[List[str]] = None) -> int:
+    """[FR-05] Wipe every data file in `$TASKQ_HOME`; return an exit code.
+
+    Removes `tasks.json`, `breaker.json`, `cache.json`, and
+    `audit.jsonl` — the exact four files SPEC §5.2 lines 311-314
+    declare. The operation is idempotent: a file that is already
+    absent is not an error, so `clear` on a fresh `$TASKQ_HOME`
+    still exits 0.
+
+    The in-process store cache is reset alongside the files so a
+    caller that keeps running in the same process does not read a
+    stale snapshot of a store whose backing file no longer exists.
+
+    Returns:
+        0 — every data file removed (or already absent).
+
+    Citations:
+        SPEC.md §3 FR-05 line 137 — `clear` 清空 `$TASKQ_HOME` 全部資料檔.
+        SPEC.md §5.2 lines 311-314 — the four data files.
+    """
+    parser = argparse.ArgumentParser(
+        prog="taskq clear",
+        description="Remove every data file in $TASKQ_HOME.",
+    )
+    parser.parse_args(list(argv) if argv is not None else [])
+
+    home = taskq_home()
+    for filename in DATA_FILENAMES:
+        (home / filename).unlink(missing_ok=True)
+    reset_store_cache()
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# [FR-05/FR-06] Dependency-graph inspection
+# ---------------------------------------------------------------------------
+
+
+def _max_dag_depth() -> int:
+    """[FR-05/FR-06] Read `TASKQ_MAX_DAG_DEPTH` from the environment.
+
+    Citations:
+        SPEC.md §5.1 line 302 — `TASKQ_MAX_DAG_DEPTH` default `32`.
+    """
+    raw = os.environ.get("TASKQ_MAX_DAG_DEPTH", "")
+    if raw == "":
+        return DEFAULT_MAX_DAG_DEPTH
+    try:
+        return int(raw)
+    except ValueError:
+        return DEFAULT_MAX_DAG_DEPTH
+
+
+def _dependency_edges(tasks: List[Task]) -> Dict[str, List[str]]:
+    """[FR-06] Map each task id to the ids it depends on.
+
+    Dangling ids (a dependency whose task is gone) are dropped so the
+    topological sweep only walks edges that exist in the loaded set;
+    `submit` already rejects unknown dependency ids at write time
+    (SPEC §7 line 385), so a dangling edge here means the referenced
+    task was removed after the fact.
+
+    Citations:
+        SPEC.md §3 FR-06 line 144 — `--after` 建立 `depends_on` 邊.
+    """
+    known = {t.id for t in tasks}
+    return {t.id: [d for d in t.depends_on if d in known] for t in tasks}
+
+
+def _kahn_order(deps: Dict[str, List[str]]) -> Tuple[List[str], List[str]]:
+    """[FR-06] Kahn topological sort; return `(order, remaining)`.
+
+    `order` is the ids in dependency-satisfied order. `remaining` holds
+    the ids Kahn could never reach — non-empty exactly when the graph
+    contains a cycle.
+
+    Citations:
+        SPEC.md §3 FR-06 line 145 — Kahn 拓撲排序.
+        SPEC.md §3 FR-06 line 147 — 循環偵測.
+    """
+    indegree = {node: len(prereqs) for node, prereqs in deps.items()}
+    dependents: Dict[str, List[str]] = {node: [] for node in deps}
+    for node, prereqs in deps.items():
+        for prereq in prereqs:
+            dependents[prereq].append(node)
+
+    ready = sorted(node for node, count in indegree.items() if count == 0)
+    order: List[str] = []
+    while ready:
+        node = ready.pop(0)
+        order.append(node)
+        for dependent in dependents[node]:
+            indegree[dependent] -= 1
+            if indegree[dependent] == 0:
+                ready.append(dependent)
+
+    emitted = set(order)
+    return order, [node for node in deps if node not in emitted]
+
+
+def _cycle_path(deps: Dict[str, List[str]], remaining: List[str]) -> List[str]:
+    """[FR-06] Extract one concrete cycle from Kahn's leftover nodes.
+
+    Every leftover node has at least one prerequisite that is itself
+    leftover — that is precisely why its indegree never reached zero —
+    so walking prerequisites inside the leftover set always revisits a
+    node and closes a cycle. No "walked off the graph" branch is
+    reachable here.
+
+    Citations:
+        SPEC.md §7 line 388 — exit 5, stderr 列出循環路徑.
+    """
+    leftover = set(remaining)
+    walked: List[str] = []
+    position: Dict[str, int] = {}
+    node = remaining[0]
+    while node not in position:
+        position[node] = len(walked)
+        walked.append(node)
+        node = next(prereq for prereq in deps[node] if prereq in leftover)
+    return walked[position[node]:] + [node]
+
+
+def _chain_depths(deps: Dict[str, List[str]], order: List[str]) -> Dict[str, int]:
+    """[FR-06] Longest dependency-chain length ending at each node.
+
+    Walking `order` (already dependency-satisfied) guarantees every
+    prerequisite's depth is known before its dependent is visited.
+
+    Citations:
+        SPEC.md §3 FR-06 line 148 — 相依鏈深度上限.
+    """
+    depths: Dict[str, int] = {}
+    for node in order:
+        depths[node] = 1 + max(
+            (depths[prereq] for prereq in deps[node]), default=0
+        )
+    return depths
+
+
+def graph(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
+    """[FR-05/FR-06] Print the dependency graph; return an exit code.
+
+    Runs the cycle detector and the depth cap across the persisted
+    graph before rendering. Both violations map to the same exit code
+    (5) but carry distinct stderr messages so the operator can tell a
+    cycle from a pathological chain.
+
+    Returns:
+        0 — graph is a DAG within the depth cap; the tree was printed.
+        5 — the graph contains a cycle, or a chain exceeds
+            `TASKQ_MAX_DAG_DEPTH`.
+
+    Citations:
+        SPEC.md §3 FR-05 line 134 — `graph` 輸出相依圖.
+        SPEC.md §3 FR-05 line 140 — `5` 相依圖存在循環或深度超限.
+        SPEC.md §3 FR-06 lines 147-148 — cycle detection + depth cap.
+        SPEC.md §7 line 388 — stderr 列出循環路徑.
+        SPEC.md §7 line 389 — stderr `dependency chain too deep:
+            <n> > <max>`.
+    """
+    parser = argparse.ArgumentParser(
+        prog="taskq graph",
+        description="Print the task dependency graph.",
+    )
+    parser.parse_args(list(argv) if argv is not None else [])
+
+    store = get_store(use_disk=use_disk)
+    tasks = store.all()
+    deps = _dependency_edges(tasks)
+
+    order, remaining = _kahn_order(deps)
+    if remaining:
+        path = _cycle_path(deps, remaining)
+        print("dependency cycle: " + " → ".join(path), file=sys.stderr)
+        return 5
+
+    depths = _chain_depths(deps, order)
+    deepest = max(depths.values(), default=0)
+    cap = _max_dag_depth()
+    if deepest > cap:
+        print(
+            f"dependency chain too deep: {deepest} > {cap}", file=sys.stderr
+        )
+        return 5
+
+    for node in order:
+        indent = "  " * (depths[node] - 1)
+        print(f"{indent}{node}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# [FR-05/FR-07] Plugin inspection
+# ---------------------------------------------------------------------------
+
+
+def plugins(argv: Optional[List[str]] = None) -> int:
+    """[FR-05/FR-07] List the declared plugin allowlist; return an exit code.
+
+    Plugin specs come from the positional arguments when supplied, and
+    otherwise from the comma-separated `TASKQ_PLUGINS` allowlist. The
+    bare `list` keyword (`taskq plugins list`) is the documented verb
+    and is not itself a plugin spec.
+
+    Every spec must match `^[A-Za-z_][A-Za-z0-9_.]*$`. A path or URL
+    form (`../evil.py`, `https://...`) fails that whitelist and is
+    rejected with exit 6 *before* any import is attempted — the
+    security rule that keeps `TASKQ_PLUGINS` from becoming an
+    arbitrary-code-execution entry point (SPEC §3 FR-07 lines 155-157,
+    NFR-02).
+
+    Returns:
+        0 — every declared spec is a well-formed module name.
+        6 — a spec is not a module name (path / URL form).
+
+    Citations:
+        SPEC.md §3 FR-05 line 135 — `plugins list`.
+        SPEC.md §3 FR-05 line 140 — `6` plugin 載入失敗.
+        SPEC.md §3 FR-07 line 157 — 模組名必須匹配
+            `^[A-Za-z_][A-Za-z0-9_.]*$`,不符 → 拒絕載入, exit 6.
+        SPEC.md §4 NFR-02 line 200 — 不得接受檔案路徑或 URL.
+        SPEC.md §7 line 390 — stderr `plugin load failed: <name>: <reason>`.
+        SPEC.md §8 line 414 — `TASKQ_PLUGINS="../evil.py" ... plugins list`
+            → exit 6 (路徑形式被拒).
+    """
+    parser = argparse.ArgumentParser(
+        prog="taskq plugins",
+        description="List the declared plugin allowlist.",
+    )
+    parser.add_argument(
+        "specs",
+        nargs="*",
+        default=[],
+        help="Plugin module names; defaults to $TASKQ_PLUGINS.",
+    )
+    args = parser.parse_args(list(argv) if argv is not None else [])
+
+    specs = [spec for spec in args.specs if spec != "list"]
+    if not specs:
+        specs = [
+            spec.strip()
+            for spec in os.environ.get("TASKQ_PLUGINS", "").split(",")
+            if spec.strip()
+        ]
+
+    for spec in specs:
+        if not PLUGIN_NAME_RE.match(spec):
+            print(
+                f"plugin load failed: {spec}: not a module name",
+                file=sys.stderr,
+            )
+            return 6
+    for spec in specs:
+        print(spec)
     return 0

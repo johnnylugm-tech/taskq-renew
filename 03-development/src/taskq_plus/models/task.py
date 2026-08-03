@@ -1,4 +1,5 @@
-"""[FR-01] Pydantic models for task submission and storage.
+"""[FR-01/FR-02] Pydantic models for task submission, storage, and
+execution results.
 
 Citations:
     SPEC.md §3 FR-01 lines 72-94 — required validation rules and the
@@ -9,6 +10,9 @@ Citations:
         character rules; reject on any failure.
     SPEC.md §3 FR-01 line 82 — seven-character injection blacklist
         (`;` `|` `&` `$` `>` `<` `` ` ``).
+    SPEC.md §3 FR-02 lines 105-118 — executor result fields
+        (`exit_code`, `stdout_tail`, `stderr_tail`, `duration_ms`,
+        `finished_at`).
     SRS.md line 81 — `pydantic` v2 model `TaskSubmission`.
     SRS.md line 53 — validation via `pydantic` v2 models.
 """
@@ -92,11 +96,14 @@ class TaskSubmission(BaseModel):
 
 
 class Task(BaseModel):
-    """[FR-01] Persisted task record (the on-disk shape).
+    """[FR-01/FR-02] Persisted task record (the on-disk shape).
 
     Citations:
         SPEC.md §3 FR-01 lines 88-91 — id / status / command / name /
             created_at / depends_on.
+        SPEC.md §3 FR-02 lines 115-118 — `exit_code`, `stdout_tail`,
+            `stderr_tail`, `duration_ms`, `finished_at` populated after
+            execution.
     """
 
     id: str = Field(default_factory=_new_task_id)
@@ -105,3 +112,9 @@ class Task(BaseModel):
     name: Optional[str] = None
     created_at: datetime = Field(default_factory=_utcnow)
     depends_on: List[str] = Field(default_factory=list)
+    # --- FR-02 result fields (populated after execution) ---
+    exit_code: Optional[int] = None
+    stdout_tail: Optional[str] = None
+    stderr_tail: Optional[str] = None
+    duration_ms: Optional[int] = None
+    finished_at: Optional[datetime] = None

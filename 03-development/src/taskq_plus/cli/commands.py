@@ -1,9 +1,15 @@
-"""[FR-01] CLI command handlers.
+"""[FR-01/FR-02] CLI command handlers.
 
 The `submit` function is the canonical entry point that the test suite
 calls in-process (`taskq_plus.cli.commands.submit(argv)`); the
 `python -m taskq_plus` entry point dispatches the same function via
 `taskq_plus.cli.main`.
+
+The `run` function (FR-02) is the dispatcher that accepts a task id
+(or `--all`), calls the executor, and persists the result through the
+store. The first positional argument is the task id; if it is
+`--all`, every pending task is executed (DAG-topological sweep in
+FR-06 — for FR-02 the iteration is over the pending set directly).
 
 In-process callers (the test suite) see an isolated in-memory store so
 per-test isolation is preserved without a global reset; subprocess
@@ -17,18 +23,31 @@ Citations:
         `unknown dependency: <id>`.
     SPEC.md §6 line 337 — `cli/commands` module location.
     SPEC.md §8 lines 406-408 — canonical acceptance commands.
+    SPEC.md §3 FR-02 lines 105-118 — execution state machine.
+    SPEC.md §3 FR-02 line 120 — single-task timeout → exit 4.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from pydantic import ValidationError
 
 from taskq_plus.models.task import Task, TaskSubmission
+from taskq_plus.service.executor import run_task
 from taskq_plus.storage.task_store import get_store
+
+
+#: [FR-02] Default per-task timeout (seconds) when `TASKQ_TASK_TIMEOUT`
+#: is unset. SPEC §3 FR-02 line 110 spells out the env override.
+DEFAULT_TASK_TIMEOUT: float = 10.0
+
+#: [FR-02] Default `max_workers` for `--all`. SPEC §3 FR-02 line 122.
+DEFAULT_MAX_WORKERS: int = 4
 
 
 def _build_submit_parser() -> argparse.ArgumentParser:
@@ -65,19 +84,40 @@ def _build_submit_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _format_validation_error(err: ValidationError) -> str:
-    """[FR-01] Reduce a pydantic ValidationError to a single-line message.
+def _build_run_parser() -> argparse.ArgumentParser:
+    """[FR-02] Build the `run` argument parser.
 
-    Pydantic v2 returns a list of error dicts; we surface the first
-    message verbatim so the user sees the same wording pydantic used
-    to decide the rule was violated.
+    Positional `[id]` is `nargs="?"` so `--all` can be supplied on its
+    own. `--all` is a `store_true` flag rather than a positional
+    sentinel so the dispatcher can disambiguate without relying on the
+    hidden underlying token.
     """
+    parser = argparse.ArgumentParser(
+        prog="taskq run",
+        description="Run a pending task by id, or all pending tasks.",
+    )
+    parser.add_argument(
+        "task_id",
+        nargs="?",
+        default=None,
+        help="Task id to run. Mutually exclusive with --all.",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="run_all",
+        help="Run all pending tasks.",
+    )
+    return parser
+
+
+def _format_validation_error(err: ValidationError) -> str:
+    """[FR-01] Reduce a pydantic ValidationError to a single-line message."""
     errors = err.errors()
     if not errors:
         return "validation failed"
     first = errors[0]
     msg = first.get("msg", "validation failed")
-    # Pydantic prefixes ValueError messages with "Value error, ".
     prefix = "Value error, "
     if msg.startswith(prefix):
         msg = msg[len(prefix):]
@@ -85,13 +125,59 @@ def _format_validation_error(err: ValidationError) -> str:
 
 
 def _emit_stderr_error(message: str) -> None:
-    """[FR-01] Print `submit: <message>` to stderr in one place.
-
-    Centralising the `submit:` prefix keeps the user-facing wording
-    consistent across the validation, name-uniqueness, and
-    dependency-existence rejection paths.
-    """
+    """[FR-01] Print `submit: <message>` to stderr in one place."""
     print(f"submit: {message}", file=sys.stderr)
+
+
+def _timeout_budget() -> float:
+    """[FR-02] Read `TASKQ_TASK_TIMEOUT` from the current environment.
+
+    Returns the float value in seconds, or `DEFAULT_TASK_TIMEOUT` if
+    unset or empty. Reads the env at call time (per FR-01 env-config
+    convention) so tests can mutate the value via `monkeypatch`.
+    """
+    raw = os.environ.get("TASKQ_TASK_TIMEOUT", "")
+    if raw == "":
+        return DEFAULT_TASK_TIMEOUT
+    try:
+        return float(raw)
+    except ValueError:
+        return DEFAULT_TASK_TIMEOUT
+
+
+def _max_workers() -> int:
+    """[FR-02] Read `TASKQ_MAX_WORKERS` from the current environment."""
+    raw = os.environ.get("TASKQ_MAX_WORKERS", "")
+    if raw == "":
+        return DEFAULT_MAX_WORKERS
+    try:
+        return int(raw)
+    except ValueError:
+        return DEFAULT_MAX_WORKERS
+
+
+def _execute_and_persist(task: Task, *, use_disk: bool) -> str:
+    """[FR-02] Execute `task` through the executor and write the result.
+
+    Returns the task's terminal status. The store is selected via
+    `use_disk` so the CLI subprocess path and the in-process test path
+    share the same dispatch though they address different backends.
+    """
+    timeout = _timeout_budget()
+    result = run_task(task, timeout=timeout)
+    store = get_store(use_disk=use_disk)
+    store.update(
+        task.id,
+        lambda t: t.model_copy(update={
+            "status": result.status,
+            "exit_code": result.exit_code,
+            "stdout_tail": result.stdout_tail,
+            "stderr_tail": result.stderr_tail,
+            "duration_ms": result.duration_ms,
+            "finished_at": result.finished_at,
+        }),
+    )
+    return result.status
 
 
 def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
@@ -106,9 +192,7 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     `python -m taskq_plus` entry point so the subprocess tests
     exercise the real `$TASKQ_HOME/tasks.json` round-trip); the
     default in-process backend is `InMemoryBackend` so the in-process
-    test surface stays isolated from any on-disk state (the test
-    fixture gives each test a unique `TASKQ_HOME`, so the per-test
-    in-memory cache also gets a unique key).
+    test surface stays isolated from any on-disk state.
 
     Returns:
         0 — submission persisted.
@@ -133,13 +217,10 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
 
     store = get_store(use_disk=use_disk)
 
-    # Name uniqueness: pending/running only (SPEC §3 line 83).
     if submission.name is not None and store.contains_name(submission.name):
         _emit_stderr_error(f"duplicate name: {submission.name}")
         return 2
 
-    # Dependency existence: every --after id must already exist
-    # (SPEC §3 line 84).
     for dep in submission.depends_on:
         if not store.has_id(dep):
             _emit_stderr_error(f"unknown dependency: {dep}")
@@ -156,4 +237,81 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         print(json.dumps({"id": stored.id, "status": stored.status}))
     else:
         print(stored.id)
+    return 0
+
+
+def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
+    """[FR-02] Run a `run` invocation.
+
+    `argv` is the token list *after* the leading `run` keyword. Two
+    shapes are supported:
+
+        run <id>      execute the task with the given id
+        run --all     execute every pending task concurrently
+
+    Returns:
+        0 — done / failed (the failure is recorded in the task's
+            `status` field; the CLI itself exits 0).
+        4 — single-task timeout (SPEC §3 FR-02 line 120).
+        2 — invalid usage (no id and no --all; id not found).
+
+    Citations:
+        SPEC.md §3 FR-02 lines 105-118 — state machine.
+        SPEC.md §3 FR-02 line 120 — single-task timeout → exit 4.
+        SPEC.md §3 FR-02 line 122 — `--all` thread-pool dispatch.
+    """
+    parser = _build_run_parser()
+    args = parser.parse_args(list(argv) if argv is not None else [])
+
+    if not args.run_all and args.task_id is None:
+        print("run: must supply a task id or --all", file=sys.stderr)
+        return 2
+
+    store = get_store(use_disk=use_disk)
+
+    if args.run_all:
+        return _run_all(store)
+
+    task = store.find(args.task_id)
+    if task is None:
+        print(f"run: task {args.task_id!r} not found", file=sys.stderr)
+        return 2
+
+    status = _execute_and_persist(task, use_disk=use_disk)
+    if status == "timeout":
+        return 4
+    return 0
+
+
+def _run_all(store) -> int:
+    """[FR-02] Execute every pending task through the thread pool.
+
+    Returns 0 because the CLI exit code reflects the subprocess
+    dispatch shape, not the per-task outcome (per-task outcome is in
+    the task record's `status`). Concurrent writes are serialised by
+    the store's shared lock — see `taskq_plus.storage.task_store`.
+    """
+    pending = [t for t in store.all() if t.status == "pending"]
+    if not pending:
+        return 0
+
+    def _worker(task: Task) -> None:
+        timeout = _timeout_budget()
+        result = run_task(task, timeout=timeout)
+        store.update(
+            task.id,
+            lambda t: t.model_copy(update={
+                "status": result.status,
+                "exit_code": result.exit_code,
+                "stdout_tail": result.stdout_tail,
+                "stderr_tail": result.stderr_tail,
+                "duration_ms": result.duration_ms,
+                "finished_at": result.finished_at,
+            }),
+        )
+
+    max_workers = max(1, min(_max_workers(), len(pending)))
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for task in pending:
+            pool.submit(_worker, task)
     return 0

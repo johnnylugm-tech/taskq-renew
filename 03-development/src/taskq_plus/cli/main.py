@@ -1,23 +1,28 @@
-"""[FR-01] Top-level `python -m taskq_plus` dispatcher.
+"""[FR-01/FR-02] Top-level `python -m taskq_plus` dispatcher.
 
-`nargs=REMAINDER` is the documented argparse passthrough: the
-subcommand's own parser (e.g. `submit`'s) sees the exact tokens after
-the subcommand name, so empty-string commands and `--flag=value`
-shapes both reach validation untouched. The contract `required=True`
-on the `command` choice means `handler` is *guaranteed* set by the
-time `main()` is called — there is no `None` branch to write.
+The dispatcher mirrors the same flag surfaces the subcommands expose
+so `python -m taskq_plus run --all` reaches the `run` handler without
+the `nargs=REMAINDER` tokenisation that hides `--all` from argparse.
+The `submit` shim still uses `nargs=REMAINDER` because its argument
+shape is intentionally free-form (the `submit` parser takes the
+`command` itself as a positional with `nargs="?"`).
+
+The contract `required=True` on the `command` choice means `handler`
+is *guaranteed* set by the time `main()` is called — there is no
+`None` branch to write.
 
 The disk backend is used here (rather than the in-memory one) so the
 subprocess test surface in `03-development/tests/test_fr01.py` reads
 and writes the real `$TASKQ_HOME/tasks.json`. The in-process test
 surface in the same file deliberately bypasses this module and goes
-through `taskq_plus.cli.commands.submit` directly so it can exercise
-the validation paths under `pytest-cov`.
+through `taskq_plus.cli.commands.submit` / `commands.run` directly so
+it can exercise the validation paths under `pytest-cov`.
 
 Citations:
     SPEC.md §6 line 337 — `taskq_plus.cli.main` location.
     SPEC.md §6 line 338 — `python -m taskq_plus` entry point.
     SPEC.md §8 lines 406-408 — acceptance commands.
+    SPEC.md §3 FR-02 lines 105-118 — execution state machine.
 """
 from __future__ import annotations
 
@@ -34,16 +39,27 @@ def _build_parser() -> argparse.ArgumentParser:
         description="A dependency-aware task queue.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
+
     submit_p = sub.add_parser("submit", help="Submit a new task.")
     submit_p.add_argument(
         "args", nargs=argparse.REMAINDER,
         help="Forwarded to `taskq submit`.",
     )
+
+    run_p = sub.add_parser("run", help="Run a pending task by id or --all.")
+    run_p.add_argument(
+        "task_id", nargs="?",
+        help="Task id to run.",
+    )
+    run_p.add_argument(
+        "--all", action="store_true", dest="run_all",
+        help="Run all pending tasks.",
+    )
     return parser
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """[FR-01] Dispatch one CLI invocation; return an exit code."""
+    """[FR-01/FR-02] Dispatch one CLI invocation; return an exit code."""
     # The subprocess test path expects each fresh `python -m taskq_plus`
     # call to see a clean in-process cache (none of the subprocess
     # test paths share an in-process store anyway, but resetting keeps
@@ -53,8 +69,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    # `required=True` on the subparsers, combined with `submit` being the
-    # only registered choice, means argparse has already rejected every
-    # other token before this point — there is no fallback branch to write
-    # (argparse exits 2 itself on an unknown/missing subcommand).
-    return commands.submit(args.args, use_disk=True)
+    if args.command == "submit":
+        return commands.submit(args.args, use_disk=True)
+
+    # `run` — forward the parsed `task_id` and `--all` flag shape.
+    if args.run_all:
+        return commands.run(["--all"], use_disk=True)
+    if args.task_id is not None:
+        return commands.run([args.task_id], use_disk=True)
+    return commands.run([], use_disk=True)

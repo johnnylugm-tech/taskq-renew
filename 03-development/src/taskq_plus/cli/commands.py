@@ -48,6 +48,7 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
@@ -56,6 +57,12 @@ from taskq_plus.config import taskq_home
 from taskq_plus.models.task import Task, TaskSubmission
 from taskq_plus.service.breaker import STATE_OPEN
 from taskq_plus.service.cache import cache_ttl, lookup as cache_lookup, record as cache_record
+from taskq_plus.service.dag import (
+    chain_depths as _chain_depths,
+    cycle_path as _cycle_path,
+    dependency_edges as _dependency_edges,
+    topo_sort as _kahn_order,
+)
 from taskq_plus.service.executor import run_task
 from taskq_plus.storage.breaker_store import make_breaker_store
 from taskq_plus.storage.task_store import get_store, reset_store_cache
@@ -202,6 +209,11 @@ def _timeout_budget() -> float:
         return DEFAULT_TASK_TIMEOUT
 
 
+def _utcnow() -> datetime:
+    """[FR-02/FR-06] UTC timestamp for `finished_at` (and blocked rows)."""
+    return datetime.now(timezone.utc)
+
+
 def _max_workers() -> int:
     """[FR-02] Read `TASKQ_MAX_WORKERS` from the current environment."""
     raw = os.environ.get("TASKQ_MAX_WORKERS", "")
@@ -254,10 +266,17 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     Returns:
         0 — submission persisted.
         2 — validation / uniqueness / dependency rule failed.
+        5 — `--after` would close a cycle, or the resulting chain
+            depth exceeds `TASKQ_MAX_DAG_DEPTH`.
 
     Citations:
         SPEC.md §7 line 383 — exit 2 on 空/非法命令.
         SPEC.md §7 line 385 — exit 2 on `--after` 不存在.
+        SPEC.md §3 FR-06 line 147 — cycle detection.
+        SPEC.md §3 FR-06 line 148 — chain depth cap.
+        SPEC.md §7 line 388 — exit 5, stderr 列出循環路徑.
+        SPEC.md §7 line 389 — exit 5, stderr
+            `dependency chain too deep: <n> > <max>`.
     """
     parser = _build_submit_parser()
     args = _parse_args(parser, argv)
@@ -288,6 +307,31 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         name=submission.name,
         depends_on=submission.depends_on,
     )
+
+    # [FR-06] Validate cycle and depth against the *persisted* graph
+    # BEFORE adding the new task. A cycle anywhere in the store —
+    # including one introduced by an out-of-band edit to `tasks.json`
+    # — must surface here so the next `submit --after` cannot close
+    # it. The depth cap rejects chains whose new tail would exceed
+    # `TASKQ_MAX_DAG_DEPTH`.
+    existing = store.all()
+    by_id: Dict[str, object] = {t.id: t for t in existing}
+    by_id[task.id] = task
+    deps = _dependency_edges([*existing, task])
+    order, remaining = _kahn_order(deps)
+    if remaining:
+        path = _cycle_path(deps, remaining)
+        _emit_stderr_error("dependency cycle: " + " → ".join(path))
+        return 5
+    depths = _chain_depths(deps, order)
+    new_depth = depths[task.id]
+    cap = _max_dag_depth()
+    if new_depth > cap:
+        _emit_stderr_error(
+            f"dependency chain too deep: {new_depth} > {cap}"
+        )
+        return 5
+
     stored = store.add(task)
 
     if args.as_json:
@@ -405,24 +449,125 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
 
 
 def _run_all(store) -> int:
-    """[FR-02] Execute every pending task through the thread pool.
+    """[FR-02/FR-06] Execute every pending task in topological order.
+
+    Walks the dependency graph layer by layer — a layer is the set of
+    pending tasks whose prerequisites are all in earlier layers or are
+    already in a terminal state in the persisted store. Within a layer
+    the executor is dispatched concurrently (SPEC §3 FR-06 line 146
+    "only in-degree-0 tasks are eligible for concurrent dispatch
+    within a layer"); between layers the dispatcher waits so a
+    downstream task cannot start before its prerequisite finishes.
+
+    A task whose prerequisite ended in any non-`done` state is
+    persisted as `status="blocked"` and skipped (SPEC §3 FR-06 line
+    146 — "下游任務... 不執行"). The blocked task does NOT count
+    toward the breaker failure counter; only tasks that actually
+    launched a subprocess contribute to `record_failure` /
+    `record_success`.
 
     Returns 0 because the CLI exit code reflects the subprocess
     dispatch shape, not the per-task outcome (per-task outcome is in
-    the task record's `status`). Concurrent writes are serialised by
-    the store's shared lock — see `taskq_plus.storage.task_store`.
+    the task record's `status`).
+
+    Citations:
+        SPEC.md §3 FR-02 line 122 — `--all` thread-pool dispatch.
+        SPEC.md §3 FR-06 line 145 — Kahn topological sort.
+        SPEC.md §3 FR-06 line 146 — blocked / breaker invariants.
+        SPEC.md §3 FR-06 line 147 — cycle detection.
     """
-    pending = [t for t in store.all() if t.status == "pending"]
-    if not pending:
+    bstore = make_breaker_store()
+    breaker = bstore.load()
+
+    tasks = store.all()
+    by_id = {t.id: t for t in tasks}
+    if not any(t.status == "pending" for t in tasks):
         return 0
 
-    def _worker(task: Task) -> None:
-        _execute_and_persist(task, store=store)
+    # [FR-06] Build the full dependency graph (over ALL tasks, not just
+    # pending ones — a persisted `failed` task is still a node whose
+    # dependents must be blocked). The depth cap and cycle checks
+    # already ran in `submit` for the *new* edges, but a `tasks.json`
+    # edit can introduce a cycle out-of-band; in that case `run --all`
+    # cannot make progress and exits 0 without dispatching.
+    deps = _dependency_edges(tasks)
+    order, remaining = _kahn_order(deps)
+    if remaining:
+        return 0
 
-    max_workers = max(1, min(_max_workers(), len(pending)))
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        for task in pending:
-            pool.submit(_worker, task)
+    depths = _chain_depths(deps, order)
+    layers: Dict[int, List[str]] = {}
+    for tid in order:
+        layers.setdefault(depths[tid], []).append(tid)
+
+    breaker_dirty = False
+    for depth in sorted(layers):
+        runnable: List[Task] = []
+        for tid in layers[depth]:
+            task = by_id[tid]
+            if task.status != "pending":
+                continue
+            prereqs_ok = all(
+                by_id[prereq].status == "done" for prereq in deps[tid]
+            )
+            if not prereqs_ok:
+                # [FR-06] Mark `blocked` and skip. The blocked task
+                # is NOT executed and does NOT increment the breaker
+                # failure counter (SPEC §3 FR-06 line 146).
+                now = _utcnow()
+                store.update(
+                    tid,
+                    lambda t, _now=now: t.model_copy(update={
+                        "status": "blocked",
+                        "exit_code": None,
+                        "stdout_tail": None,
+                        "stderr_tail": None,
+                        "duration_ms": 0,
+                        "finished_at": _now,
+                        "cached": False,
+                    }),
+                )
+                refreshed = store.find(tid)
+                if refreshed is not None:
+                    by_id[tid] = refreshed
+                continue
+            runnable.append(task)
+
+        if not runnable:
+            continue
+
+        def _dispatch(task: Task) -> str:
+            return _execute_and_persist(task, store=store)
+
+        max_workers = max(1, min(_max_workers(), len(runnable)))
+        if max_workers == 1:
+            for task in runnable:
+                status = _dispatch(task)
+                refreshed = store.find(task.id)
+                if refreshed is not None:
+                    by_id[task.id] = refreshed
+                if status == "done":
+                    breaker.record_success()
+                elif status in ("failed", "timeout"):
+                    breaker.record_failure()
+                breaker_dirty = True
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futures = {pool.submit(_dispatch, task): task for task in runnable}
+                for future, task in futures.items():
+                    status = future.result()
+                    refreshed = store.find(task.id)
+                    if refreshed is not None:
+                        by_id[task.id] = refreshed
+                    if status == "done":
+                        breaker.record_success()
+                    elif status in ("failed", "timeout"):
+                        breaker.record_failure()
+                    breaker_dirty = True
+
+    if breaker_dirty:
+        bstore.save(breaker)
+
     return 0
 
 
@@ -601,93 +746,6 @@ def _max_dag_depth() -> int:
         return int(raw)
     except ValueError:
         return DEFAULT_MAX_DAG_DEPTH
-
-
-def _dependency_edges(tasks: List[Task]) -> Dict[str, List[str]]:
-    """[FR-06] Map each task id to the ids it depends on.
-
-    Dangling ids (a dependency whose task is gone) are dropped so the
-    topological sweep only walks edges that exist in the loaded set;
-    `submit` already rejects unknown dependency ids at write time
-    (SPEC §7 line 385), so a dangling edge here means the referenced
-    task was removed after the fact.
-
-    Citations:
-        SPEC.md §3 FR-06 line 144 — `--after` 建立 `depends_on` 邊.
-    """
-    known = {t.id for t in tasks}
-    return {t.id: [d for d in t.depends_on if d in known] for t in tasks}
-
-
-def _kahn_order(deps: Dict[str, List[str]]) -> Tuple[List[str], List[str]]:
-    """[FR-06] Kahn topological sort; return `(order, remaining)`.
-
-    `order` is the ids in dependency-satisfied order. `remaining` holds
-    the ids Kahn could never reach — non-empty exactly when the graph
-    contains a cycle.
-
-    Citations:
-        SPEC.md §3 FR-06 line 145 — Kahn 拓撲排序.
-        SPEC.md §3 FR-06 line 147 — 循環偵測.
-    """
-    indegree = {node: len(prereqs) for node, prereqs in deps.items()}
-    dependents: Dict[str, List[str]] = {node: [] for node in deps}
-    for node, prereqs in deps.items():
-        for prereq in prereqs:
-            dependents[prereq].append(node)
-
-    ready = sorted(node for node, count in indegree.items() if count == 0)
-    order: List[str] = []
-    while ready:
-        node = ready.pop(0)
-        order.append(node)
-        for dependent in dependents[node]:
-            indegree[dependent] -= 1
-            if indegree[dependent] == 0:
-                ready.append(dependent)
-
-    emitted = set(order)
-    return order, [node for node in deps if node not in emitted]
-
-
-def _cycle_path(deps: Dict[str, List[str]], remaining: List[str]) -> List[str]:
-    """[FR-06] Extract one concrete cycle from Kahn's leftover nodes.
-
-    Every leftover node has at least one prerequisite that is itself
-    leftover — that is precisely why its indegree never reached zero —
-    so walking prerequisites inside the leftover set always revisits a
-    node and closes a cycle. No "walked off the graph" branch is
-    reachable here.
-
-    Citations:
-        SPEC.md §7 line 388 — exit 5, stderr 列出循環路徑.
-    """
-    leftover = set(remaining)
-    walked: List[str] = []
-    position: Dict[str, int] = {}
-    node = remaining[0]
-    while node not in position:
-        position[node] = len(walked)
-        walked.append(node)
-        node = next(prereq for prereq in deps[node] if prereq in leftover)
-    return walked[position[node]:] + [node]
-
-
-def _chain_depths(deps: Dict[str, List[str]], order: List[str]) -> Dict[str, int]:
-    """[FR-06] Longest dependency-chain length ending at each node.
-
-    Walking `order` (already dependency-satisfied) guarantees every
-    prerequisite's depth is known before its dependent is visited.
-
-    Citations:
-        SPEC.md §3 FR-06 line 148 — 相依鏈深度上限.
-    """
-    depths: Dict[str, int] = {}
-    for node in order:
-        depths[node] = 1 + max(
-            (depths[prereq] for prereq in deps[node]), default=0
-        )
-    return depths
 
 
 def graph(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:

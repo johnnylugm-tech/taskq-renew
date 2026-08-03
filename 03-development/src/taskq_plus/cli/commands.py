@@ -39,6 +39,7 @@ from pydantic import ValidationError
 
 from taskq_plus.models.task import Task, TaskSubmission
 from taskq_plus.service.breaker import STATE_OPEN
+from taskq_plus.service.cache import cache_ttl, lookup as cache_lookup, record as cache_record
 from taskq_plus.service.executor import run_task
 from taskq_plus.storage.breaker_store import make_breaker_store
 from taskq_plus.storage.task_store import get_store
@@ -110,6 +111,12 @@ def _build_run_parser() -> argparse.ArgumentParser:
         dest="run_all",
         help="Run all pending tasks.",
     )
+    parser.add_argument(
+        "--cached",
+        action="store_true",
+        dest="use_cache",
+        help="Replay a recent completed result when available.",
+    )
     return parser
 
 
@@ -167,6 +174,7 @@ def _persist_result(store, task: Task, result) -> None:
         "stderr_tail": result.stderr_tail,
         "duration_ms": result.duration_ms,
         "finished_at": result.finished_at,
+        "cached": False,
     }
     store.update(
         task.id,
@@ -298,7 +306,41 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         print(f"run: task {args.task_id!r} not found", file=sys.stderr)
         return 2
 
+    # [FR-04] A cache hit updates the task directly and never invokes the
+    # executor. CacheStore handles corrupt files as ordinary misses.
+    cached_entry = None
+    if args.use_cache:
+        cached_entry = cache_lookup(task.command, ttl_s=cache_ttl())
+    if cached_entry is not None:
+        cached_fields = {
+            "status": "done",
+            "exit_code": cached_entry.get("exit_code"),
+            "stdout_tail": cached_entry.get("stdout_tail"),
+            "cached": True,
+        }
+        store.update(task.id, lambda current: current.model_copy(update=cached_fields))
+        breaker.record_success()
+        bstore.save(breaker)
+        return 0
+
     status = _execute_and_persist(task, store=store)
+
+    if status == "done":
+        updated = store.find(task.id)
+        if updated is not None:
+            # [FR-04] Keep the newest successful result available for replay.
+            cache_record(
+                updated.command,
+                {
+                    "command": updated.command,
+                    "exit_code": updated.exit_code,
+                    "stdout_tail": updated.stdout_tail,
+                    "finished_at": updated.finished_at.isoformat()
+                    if updated.finished_at is not None
+                    else None,
+                    "status": "done",
+                },
+            )
 
     # [FR-03] Persist the outcome on the breaker. `done` resets the
     # count to 0 (CLOSED — no failure memory); `failed` / `timeout`

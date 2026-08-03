@@ -118,3 +118,5 @@ class Task(BaseModel):
     stderr_tail: Optional[str] = None
     duration_ms: Optional[int] = None
     finished_at: Optional[datetime] = None
+    # --- FR-04 cache replay marker ---
+    cached: bool = False

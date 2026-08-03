@@ -55,6 +55,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--all", action="store_true", dest="run_all",
         help="Run all pending tasks.",
     )
+    run_p.add_argument(
+        "--cached", action="store_true", dest="use_cache",
+        help="Replay a recent completed result when available.",
+    )
     return parser
 
 
@@ -70,11 +74,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "submit":
-        return commands.submit(args.args, use_disk=True)
+        # The user-facing command is free-form; preserve all command tokens
+        # as one validated command string before handing off to the handler.
+        return commands.submit([" ".join(args.args)], use_disk=True)
 
     # `run` — forward the parsed `task_id` and `--all` flag shape.
     if args.run_all:
         return commands.run(["--all"], use_disk=True)
     if args.task_id is not None:
-        return commands.run([args.task_id], use_disk=True)
+        forwarded = [args.task_id]
+        if args.use_cache:
+            forwarded.append("--cached")
+        return commands.run(forwarded, use_disk=True)
     return commands.run([], use_disk=True)

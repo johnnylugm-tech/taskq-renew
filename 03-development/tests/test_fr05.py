@@ -275,14 +275,18 @@ def test_fr05_all_exit_codes_are_reachable(
         return
 
     if expected_exit == "5":
-        # `dependency cycle`: submit A, submit B --after A, then submit
-        # an edge closing B -> A via --after on a third task that
-        # depends on B and is the *target* of a re-registration. The
-        # spec phrasing "submit an edge closing B to A" requires the
-        # submit-side dependency-graph builder to reject a cycle.
-        # We try a direct self-cycle (--after pointing at the same id
-        # would be the simplest, but the dispatcher will reject the
-        # unknown-dependency first); instead we build A -> B -> A.
+        # `dependency cycle`: build the chain A <- B <- C via `--after`,
+        # then close the cycle with the edge A -> C and assert that the
+        # documented `graph` command reports exit 5.
+        #
+        # Why the closing edge is written to `tasks.json` directly:
+        # `--after` can only name ids that already exist and `submit`
+        # rejects unknown dependency ids (SPEC §7 line 385), so no
+        # sequence of `submit` calls can ever produce a cycle — every
+        # new task is a leaf. The persisted graph is therefore the only
+        # surface through which a cycle can enter the system, and
+        # `graph`'s Kahn-based detector (SPEC §3 FR-06 line 147) is the
+        # documented command that must surface it as exit 5.
         submit_a = _run_subprocess(["submit", "echo a"], child_env)
         assert submit_a.returncode == 0, (
             f"scenario {scenario!r}: submit A must succeed; "
@@ -297,31 +301,53 @@ def test_fr05_all_exit_codes_are_reachable(
             f"got {submit_b.returncode}; stderr={submit_b.stderr!r}"
         )
         b_id = submit_b.stdout.strip()
-        # Closing the cycle: try to submit a task that depends on B
-        # *and* replace A's dependency to point at B. Since FR-01 only
-        # allows --after at submit time, the only path left to close
-        # a cycle is to add an --after on a *new* task that already
-        # appears as a dependency target. The dispatcher / DAG
-        # validator must reject this with exit 5.
-        submit_cycle = _run_subprocess(
+        submit_c = _run_subprocess(
             ["submit", "echo c", "--after", b_id], child_env
         )
-        # Once the cycle is fully closed by a third edge, the dispatcher
-        # must reject. If the dispatcher does not yet have cycle
-        # detection on submit, this case currently returns 0; the
-        # canonical exit 5 surfaces from the explicit
-        # `python -m taskq_plus graph` invocation, which runs the
-        # cycle detector across the persisted graph.
-        if submit_cycle.returncode == 0:
-            graph_proc = _run_subprocess(["graph"], child_env)
-            assert graph_proc.returncode == 5, (
-                f"scenario {scenario!r}: expected exit 5 (cycle); "
-                f"got {graph_proc.returncode}; stderr={graph_proc.stderr!r}"
-            )
-        else:
-            assert submit_cycle.returncode == 5, (
-                f"scenario {scenario!r}: expected exit 5 (cycle on submit); "
-                f"got {submit_cycle.returncode}; stderr={submit_cycle.stderr!r}"
+        assert submit_c.returncode == 0, (
+            f"scenario {scenario!r}: submit C must succeed; "
+            f"got {submit_c.returncode}; stderr={submit_c.stderr!r}"
+        )
+        c_id = submit_c.stdout.strip()
+
+        # Sanity: the acyclic chain A <- B <- C must still be a valid
+        # DAG, so `graph` exits 0 *before* the cycle is introduced.
+        # This proves the exit 5 below is caused by the cycle and not
+        # by unrelated graph breakage.
+        dag_proc = _run_subprocess(["graph"], child_env)
+        assert dag_proc.returncode == 0, (
+            f"scenario {scenario!r}: the acyclic chain must exit 0 before "
+            f"the cycle is closed; got {dag_proc.returncode}; "
+            f"stderr={dag_proc.stderr!r}"
+        )
+
+        # Close the cycle: A now depends on C, giving A -> B -> C -> A.
+        records = _read_tasks_json(taskq_home)
+        assert {r["id"] for r in records} == {a_id, b_id, c_id}, (
+            f"scenario {scenario!r}: tasks.json must hold exactly the "
+            f"three submitted ids; got {sorted(r['id'] for r in records)!r}"
+        )
+        for record in records:
+            if record["id"] == a_id:
+                record["depends_on"] = [c_id]
+        (taskq_home / "tasks.json").write_text(
+            _json.dumps(records), encoding="utf-8"
+        )
+
+        graph_proc = _run_subprocess(["graph"], child_env)
+        assert graph_proc.returncode == 5, (
+            f"scenario {scenario!r}: expected exit 5 (cycle); "
+            f"got {graph_proc.returncode}; stderr={graph_proc.stderr!r}"
+        )
+        assert "dependency cycle" in graph_proc.stderr, (
+            f"scenario {scenario!r}: exit 5 must report the cycle on "
+            f"stderr (SPEC §7 line 388); got {graph_proc.stderr!r}"
+        )
+        # The reported path must name the members of the real cycle.
+        for member in (a_id, b_id, c_id):
+            assert member in graph_proc.stderr, (
+                f"scenario {scenario!r}: cycle path must include {member!r}; "
+                f"got {graph_proc.stderr!r}"
             )
         return
 
@@ -490,3 +516,758 @@ def test_fr05_cli_main_dispatches_clear_in_process(
             f"in-process clear must remove {filename}; still present at "
             f"{taskq_home / filename}"
         )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.cli.main` — the remaining FR-05 subcommand dispatch shapes
+# ---------------------------------------------------------------------------
+
+
+def _capture_main(argv: list) -> tuple:
+    """Run `main(argv)` in-process, returning `(exit_code, stdout, stderr)`."""
+    from taskq_plus.cli.main import main
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        exit_code = main(list(argv))
+    return exit_code, out.getvalue(), err.getvalue()
+
+
+def _submit_in_process(command: str, *flags: str) -> str:
+    """Submit one task through the in-process dispatcher; return its id."""
+    exit_code, stdout, stderr = _capture_main(["submit", command, *flags])
+    assert exit_code == 0, (
+        f"setup submit {command!r} {flags!r} must exit 0; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+    return stdout.strip()
+
+
+# NFR-09
+def test_fr05_cli_main_submit_forwards_after_flag_in_process(taskq_home):
+    """`submit "<cmd>" --after <id>` must persist the dependency edge.
+
+    Regression guard: the dispatcher receives the `submit` tokens as an
+    `argparse.REMAINDER` list. Joining *every* token into the command
+    string folds `--after <id>` into the command body, so the edge is
+    silently dropped and `graph` sees two unrelated roots. The command
+    body must be joined only up to the first handler-owned flag.
+
+    *(SPEC §3 FR-01 line 84 — `--after` builds `depends_on`;
+    SPEC §3 FR-05 line 131 — `submit "<cmd>" [--name N] [--after ID]`.)*
+    """
+    a_id = _submit_in_process("echo a")
+    b_id = _submit_in_process("echo b", "--after", a_id)
+
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    assert records[b_id]["depends_on"] == [a_id], (
+        f"--after must persist depends_on=[{a_id!r}]; got "
+        f"{records[b_id]['depends_on']!r}"
+    )
+    assert records[b_id]["command"] == "echo b", (
+        f"the --after flag must not leak into the command body; got "
+        f"{records[b_id]['command']!r}"
+    )
+    assert records[a_id]["depends_on"] == [], (
+        f"a task submitted without --after must have no dependencies; got "
+        f"{records[a_id]['depends_on']!r}"
+    )
+
+
+# NFR-09
+def test_fr05_cli_main_submit_forwards_name_flag_in_process(taskq_home):
+    """`submit "<cmd>" --name <n>` must persist `name`, not fold the
+    flag into the command body. *(SPEC §3 FR-05 line 131)*"""
+    task_id = _submit_in_process("echo hi", "--name", "nightly")
+
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    assert records[task_id]["name"] == "nightly", (
+        f"--name must persist as the task name; got {records[task_id]['name']!r}"
+    )
+    assert records[task_id]["command"] == "echo hi", (
+        f"the --name flag must not leak into the command body; got "
+        f"{records[task_id]['command']!r}"
+    )
+
+
+# NFR-09
+def test_fr05_cli_main_status_plain_prints_every_field(taskq_home):
+    """`status <id>` without `--json` prints one `key: value` line per
+    persisted field. *(SPEC §3 FR-05 line 132 — 輸出該任務全欄位)*"""
+    task_id = _submit_in_process("echo hi")
+
+    exit_code, stdout, _stderr = _capture_main(["status", task_id])
+    assert exit_code == 0, f"status must exit 0; got {exit_code}"
+
+    printed = {
+        line.split(":", 1)[0] for line in stdout.splitlines() if ":" in line
+    }
+    for field in ("id", "command", "name", "status", "created_at", "depends_on"):
+        assert field in printed, (
+            f"plain status must print a {field!r} line; got {stdout!r}"
+        )
+    assert f"id: {task_id}" in stdout, (
+        f"plain status must echo the requested id; got {stdout!r}"
+    )
+
+
+# NFR-04 / NFR-09
+def test_fr05_cli_main_status_unknown_id_exits_2(taskq_home):
+    """`status <unknown-id>` exits 2 with `unknown task: <id>` on
+    stderr. *(SPEC §7 line 384)*"""
+    exit_code, stdout, stderr = _capture_main(["status", "deadbeef"])
+
+    assert exit_code == 2, (
+        f"unknown task id must exit 2; got {exit_code}; stderr={stderr!r}"
+    )
+    assert "unknown task: deadbeef" in stderr, (
+        f"stderr must name the unknown id; got {stderr!r}"
+    )
+    assert stdout == "", (
+        f"a rejected status lookup must print nothing on stdout; got {stdout!r}"
+    )
+
+
+# NFR-09
+def test_fr05_cli_main_list_prints_tasks_plain_and_json(taskq_home):
+    """`list` prints one row per task; `list --json` prints the same
+    set as a single-line JSON array. *(SPEC §3 FR-05 line 133 + 139)*"""
+    first = _submit_in_process("echo a")
+    second = _submit_in_process("echo b")
+
+    exit_code, stdout, _stderr = _capture_main(["list"])
+    assert exit_code == 0, f"list must exit 0; got {exit_code}"
+    rows = [line for line in stdout.splitlines() if line.strip()]
+    assert len(rows) == 2, f"list must print one row per task; got {stdout!r}"
+    for task_id in (first, second):
+        assert task_id in stdout, (
+            f"list must include {task_id!r}; got {stdout!r}"
+        )
+    assert all("pending" in row for row in rows), (
+        f"each list row must carry the task status; got {rows!r}"
+    )
+
+    json_exit, json_stdout, _json_stderr = _capture_main(["list", "--json"])
+    assert json_exit == 0, f"list --json must exit 0; got {json_exit}"
+    payload = _json.loads(json_stdout.strip())
+    assert [entry["id"] for entry in payload] == [first, second], (
+        f"list --json must carry both ids in submission order; got {payload!r}"
+    )
+    assert payload[0]["command"] == "echo a", (
+        f"list --json entries must carry the full task record; got {payload[0]!r}"
+    )
+
+
+# NFR-09
+def test_fr05_cli_main_list_reports_corrupted_store(taskq_home):
+    """A corrupted `tasks.json` surfaces as exit 1 + `store corrupted`
+    on stderr — never a silent rebuild. *(SPEC §7 line 392)*"""
+    (taskq_home / "tasks.json").write_text("not-valid-json", encoding="utf-8")
+
+    exit_code, stdout, stderr = _capture_main(["list"])
+
+    assert exit_code == 1, (
+        f"a corrupted store must exit 1; got {exit_code}; stderr={stderr!r}"
+    )
+    assert "store corrupted" in stderr, (
+        f"stderr must say 'store corrupted'; got {stderr!r}"
+    )
+    assert stdout == "", (
+        f"a corrupted store must print no task rows; got {stdout!r}"
+    )
+    assert (taskq_home / "tasks.json").read_text(encoding="utf-8") == (
+        "not-valid-json"
+    ), "the corrupted file must be left untouched (no silent rebuild)"
+
+
+# NFR-09
+def test_fr05_cli_main_graph_renders_dependency_chain(taskq_home):
+    """`graph` prints the DAG in topological order, indenting each node
+    by its dependency depth. *(SPEC §3 FR-05 line 134; §3 FR-06 line 145)*"""
+    a_id = _submit_in_process("echo a")
+    b_id = _submit_in_process("echo b", "--after", a_id)
+    c_id = _submit_in_process("echo c", "--after", b_id)
+
+    exit_code, stdout, stderr = _capture_main(["graph"])
+
+    assert exit_code == 0, (
+        f"an acyclic graph must exit 0; got {exit_code}; stderr={stderr!r}"
+    )
+    assert stdout.splitlines() == [a_id, f"  {b_id}", f"    {c_id}"], (
+        f"graph must emit the chain in topological order with one indent "
+        f"level per depth; got {stdout!r}"
+    )
+
+
+# NFR-09
+def test_fr05_cli_main_graph_reports_cycle(taskq_home):
+    """A cyclic persisted graph exits 5 and prints the cycle path.
+    *(SPEC §3 FR-05 line 140; §7 line 388)*"""
+    a_id = _submit_in_process("echo a")
+    b_id = _submit_in_process("echo b", "--after", a_id)
+
+    # `submit` can only reference ids that already exist, so the closing
+    # edge B -> A is written straight to the persisted graph.
+    records = _read_tasks_json(taskq_home)
+    for record in records:
+        if record["id"] == a_id:
+            record["depends_on"] = [b_id]
+    (taskq_home / "tasks.json").write_text(
+        _json.dumps(records), encoding="utf-8"
+    )
+
+    exit_code, stdout, stderr = _capture_main(["graph"])
+
+    assert exit_code == 5, (
+        f"a cyclic graph must exit 5; got {exit_code}; stderr={stderr!r}"
+    )
+    assert "dependency cycle" in stderr, (
+        f"stderr must announce the cycle; got {stderr!r}"
+    )
+    for member in (a_id, b_id):
+        assert member in stderr, (
+            f"the cycle path must name {member!r}; got {stderr!r}"
+        )
+    assert stdout == "", (
+        f"a cyclic graph must not print a partial tree; got {stdout!r}"
+    )
+
+
+# NFR-09
+def test_fr05_cli_main_graph_reports_depth_cap_breach(taskq_home, monkeypatch):
+    """A chain deeper than `TASKQ_MAX_DAG_DEPTH` exits 5 with
+    `dependency chain too deep: <n> > <max>`. *(SPEC §7 line 389)*"""
+    a_id = _submit_in_process("echo a")
+    _submit_in_process("echo b", "--after", a_id)
+
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "1")
+    exit_code, stdout, stderr = _capture_main(["graph"])
+
+    assert exit_code == 5, (
+        f"a chain deeper than the cap must exit 5; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+    assert "dependency chain too deep: 2 > 1" in stderr, (
+        f"stderr must report the measured depth and the cap; got {stderr!r}"
+    )
+    assert stdout == "", (
+        f"a capped graph must not print the tree; got {stdout!r}"
+    )
+
+
+# NFR-09
+def test_fr05_cli_main_graph_ignores_unparseable_depth_cap(
+    taskq_home, monkeypatch
+):
+    """A non-numeric `TASKQ_MAX_DAG_DEPTH` falls back to the documented
+    default (32) instead of crashing. *(SPEC §5.1 line 302)*"""
+    a_id = _submit_in_process("echo a")
+    _submit_in_process("echo b", "--after", a_id)
+
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "not-an-int")
+    exit_code, _stdout, stderr = _capture_main(["graph"])
+
+    assert exit_code == 0, (
+        f"an unparseable depth cap must fall back to the default and exit 0; "
+        f"got {exit_code}; stderr={stderr!r}"
+    )
+    assert stderr == "", (
+        f"the fallback must be silent, not a warning; got {stderr!r}"
+    )
+
+
+# NFR-04 / NFR-09
+def test_fr05_cli_main_plugins_lists_allowlist(taskq_home, monkeypatch):
+    """`plugins list` prints the `TASKQ_PLUGINS` allowlist and exits 0.
+    *(SPEC §3 FR-05 line 135; §3 FR-07 line 157)*"""
+    monkeypatch.setenv("TASKQ_PLUGINS", "json, os")
+
+    exit_code, stdout, stderr = _capture_main(["plugins", "list"])
+
+    assert exit_code == 0, (
+        f"a well-formed allowlist must exit 0; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+    assert stdout.splitlines() == ["json", "os"], (
+        f"plugins list must print each declared module name; got {stdout!r}"
+    )
+    assert "list" not in stdout.splitlines(), (
+        f"the `list` verb is not itself a plugin spec; got {stdout!r}"
+    )
+
+
+# NFR-04 / NFR-09
+def test_fr05_cli_main_plugins_rejects_path_form(taskq_home):
+    """A path-form plugin spec is rejected with exit 6 *before* any
+    import. *(SPEC §3 FR-07 line 157; §4 NFR-02 line 200; §7 line 390)*"""
+    exit_code, stdout, stderr = _capture_main(["plugins", "../evil.py"])
+
+    assert exit_code == 6, (
+        f"a path-form plugin spec must exit 6; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+    assert "plugin load failed: ../evil.py" in stderr, (
+        f"stderr must name the rejected spec; got {stderr!r}"
+    )
+    assert "not a module name" in stderr, (
+        f"stderr must give the rejection reason; got {stderr!r}"
+    )
+    assert stdout == "", (
+        f"a rejected spec must not be echoed on stdout; got {stdout!r}"
+    )
+
+
+# NFR-09
+def test_fr05_cli_main_run_dispatch_shapes(taskq_home):
+    """The `run` dispatcher forwards all three documented shapes:
+    `run <id>`, `run <id> --cached`, and `run --all`; a bare `run`
+    with neither is a usage error (exit 2). *(SPEC §3 FR-05 line 131)*"""
+    task_id = _submit_in_process("echo hi")
+
+    cached_exit, _stdout, cached_stderr = _capture_main(
+        ["run", task_id, "--cached"]
+    )
+    assert cached_exit == 0, (
+        f"`run <id> --cached` must exit 0; got {cached_exit}; "
+        f"stderr={cached_stderr!r}"
+    )
+
+    all_exit, _all_stdout, all_stderr = _capture_main(["run", "--all"])
+    assert all_exit == 0, (
+        f"`run --all` must exit 0; got {all_exit}; stderr={all_stderr!r}"
+    )
+
+    bare_exit, _bare_stdout, bare_stderr = _capture_main(["run"])
+    assert bare_exit == 2, (
+        f"a bare `run` must be a usage error (exit 2); got {bare_exit}; "
+        f"stderr={bare_stderr!r}"
+    )
+    assert "must supply a task id or --all" in bare_stderr, (
+        f"stderr must explain the usage error; got {bare_stderr!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.storage.task_store` — the backends behind the FR-05 surface
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr05_in_process_store_backend_round_trip(taskq_home):
+    """The in-process (`use_disk=False`) backend behind the FR-05
+    handlers supports the full submit -> list -> run round trip, so the
+    in-process surface never leaks into `$TASKQ_HOME`."""
+    from taskq_plus.cli import commands
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        submit_exit = commands.submit(["echo hi"])
+    assert submit_exit == 0, f"in-memory submit must exit 0; got {submit_exit}"
+    task_id = buf.getvalue().strip()
+
+    list_buf = io.StringIO()
+    with contextlib.redirect_stdout(list_buf):
+        list_exit = commands.list_tasks([])
+    assert list_exit == 0, f"in-memory list must exit 0; got {list_exit}"
+    assert task_id in list_buf.getvalue(), (
+        f"the in-memory backend must return the submitted task; got "
+        f"{list_buf.getvalue()!r}"
+    )
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        run_exit = commands.run([task_id])
+    assert run_exit == 0, f"in-memory run must exit 0; got {run_exit}"
+
+    status_buf = io.StringIO()
+    with contextlib.redirect_stdout(status_buf):
+        status_exit = commands.status([task_id, "--json"])
+    assert status_exit == 0, f"in-memory status must exit 0; got {status_exit}"
+    payload = _json.loads(status_buf.getvalue().strip())
+    assert payload["status"] == "done", (
+        f"the executed task must be persisted as done in the in-memory "
+        f"backend; got {payload['status']!r}"
+    )
+    assert not (taskq_home / "tasks.json").exists(), (
+        "the in-process backend must not write $TASKQ_HOME/tasks.json"
+    )
+
+
+# NFR-09
+def test_fr05_store_update_on_missing_id_raises_key_error(taskq_home):
+    """Both backends report an update against a removed id as a
+    `KeyError` instead of resurrecting a record — the invariant `clear`
+    (FR-05) depends on. *(SPEC §3 FR-05 line 136)*"""
+    from taskq_plus.storage.task_store import get_store, make_disk_store
+
+    in_memory = get_store(use_disk=False)
+    with pytest.raises(KeyError) as in_memory_exc:
+        in_memory.update("deadbeef", lambda task: task)
+    assert "deadbeef" in str(in_memory_exc.value), (
+        f"the in-memory KeyError must name the missing id; got "
+        f"{in_memory_exc.value!r}"
+    )
+
+    on_disk = make_disk_store()
+    with pytest.raises(KeyError) as disk_exc:
+        on_disk.update("deadbeef", lambda task: task)
+    assert "deadbeef" in str(disk_exc.value), (
+        f"the on-disk KeyError must name the missing id; got "
+        f"{disk_exc.value!r}"
+    )
+
+
+# ===========================================================================
+# Coverage extension — exercise every branch in `commands.py` so the FR-05
+# test_coverage dimension reaches the Gate 1 threshold. These tests are
+# additive: they drive the same in-process surface the spec covers, but
+# trigger paths the canonical spec cases leave untouched (env-var fallbacks,
+# duplicate-name rejection, unknown-dep rejection, cache-hit short-circuit,
+# breaker-OPEN short-circuit, run-timeout, run-not-found, run --all pool,
+# submit --json output, pydantic ValidationError formatting).
+# ===========================================================================
+
+
+# NFR-09
+def test_fr05_submit_emits_validation_error_in_process(taskq_home):
+    """An empty command triggers pydantic `ValidationError` -> exit 2
+    with the formatted single-line message on stderr. Covers
+    `_format_validation_error` (lines 173-181) and the ValidationError
+    branch of `submit` (lines 271-273)."""
+    from taskq_plus.cli import commands
+
+    exit_code, _stdout, stderr = _capture_main(["submit", ""])
+    assert exit_code == 2, (
+        f"empty command must exit 2; got {exit_code}; stderr={stderr!r}"
+    )
+    # Stderr must carry the formatted validation message; it must be
+    # prefixed with `submit: `.
+    assert stderr.startswith("submit: "), (
+        f"validation failure must be prefixed with 'submit: '; got {stderr!r}"
+    )
+    # The pydantic error for an empty command carries a "Value error, "
+    # prefix that `_format_validation_error` strips — assert the suffix
+    # carries the post-strip body (no double "Value error, ").
+    assert "Value error, Value error," not in stderr, (
+        f"the 'Value error, ' prefix must be stripped; got {stderr!r}"
+    )
+
+    # Direct unit test of `_format_validation_error` to force the
+    # `errors()` -> `first` path on a multi-error pydantic model.
+    from pydantic import ValidationError as _PydValErr  # type: ignore
+
+    from taskq_plus.models.task import TaskSubmission as _TS
+
+    try:
+        _TS(command="", depends_on=["x" * 5_000])
+    except _PydValErr as exc:
+        formatted = commands._format_validation_error(exc)
+    else:
+        pytest.fail("TaskSubmission with empty command + huge dep list must raise")
+
+    # `formatted` is a non-empty stripped message — never the raw
+    # "Value error, " prefix.
+    assert formatted, "_format_validation_error must return a non-empty string"
+    assert not formatted.startswith("Value error, "), (
+        f"the 'Value error, ' prefix must be stripped; got {formatted!r}"
+    )
+
+    # Cover the empty-errors fallback (line 175). `_format_validation_error`
+    # only ever calls `err.errors()`, so a duck-typed stand-in with an
+    # empty `.errors()` payload reaches the defensive branch.
+    class _EmptyErrorsExc:
+        def errors(self, *_args, **_kwargs):  # type: ignore[no-untyped-def]
+            return []
+
+    fallback = commands._format_validation_error(_EmptyErrorsExc())
+    assert fallback == "validation failed", (
+        f"the empty-errors fallback must return 'validation failed'; got "
+        f"{fallback!r}"
+    )
+
+
+# NFR-09
+def test_fr05_submit_rejects_duplicate_name_in_process(taskq_home):
+    """Submitting two tasks with the same `--name` exits 2 with
+    `duplicate name: <name>` on stderr. Covers lines 277-279."""
+    exit_code, _stdout, _stderr1 = _capture_main(
+        ["submit", "echo a", "--name", "shared"]
+    )
+    assert exit_code == 0, f"first submit must succeed; got {exit_code}"
+
+    exit_code, _stdout, stderr = _capture_main(
+        ["submit", "echo b", "--name", "shared"]
+    )
+    assert exit_code == 2, (
+        f"duplicate name must exit 2; got {exit_code}; stderr={stderr!r}"
+    )
+    assert "duplicate name: shared" in stderr, (
+        f"stderr must name the duplicate; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr05_submit_rejects_unknown_dependency_in_process(taskq_home):
+    """Submitting with `--after <missing>` exits 2 with
+    `unknown dependency: <id>` on stderr. Covers lines 281-284."""
+    exit_code, _stdout, stderr = _capture_main(
+        ["submit", "echo hi", "--after", "deadbeef"]
+    )
+    assert exit_code == 2, (
+        f"unknown --after must exit 2; got {exit_code}; stderr={stderr!r}"
+    )
+    assert "unknown dependency: deadbeef" in stderr, (
+        f"stderr must name the unknown id; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr05_submit_json_flag_prints_json_record_in_process(taskq_home):
+    """`submit "<cmd>" --json` prints `{"id": ..., "status": ...}` on
+    stdout. Covers line 294 (`args.as_json` branch of `submit`)."""
+    exit_code, stdout, _stderr = _capture_main(["submit", "echo hi", "--json"])
+    assert exit_code == 0, f"--json submit must exit 0; got {exit_code}"
+
+    payload = _json.loads(stdout.strip())
+    assert set(payload.keys()) == {"id", "status"}, (
+        f"--json submit payload must carry exactly id+status; got {sorted(payload)!r}"
+    )
+    assert TASK_ID_RE.match(payload["id"]), (
+        f"--json submit id must be an 8-hex token; got {payload['id']!r}"
+    )
+    assert payload["status"] == "pending", (
+        f"a fresh submission must be pending; got {payload['status']!r}"
+    )
+
+
+# NFR-09
+def test_fr05_env_task_timeout_unparseable_falls_back_in_process(
+    taskq_home, monkeypatch
+):
+    """A non-numeric `TASKQ_TASK_TIMEOUT` falls back to the documented
+    default (10.0 s) instead of crashing. Covers lines 199-202."""
+    monkeypatch.setenv("TASKQ_TASK_TIMEOUT", "not-a-float")
+
+    from taskq_plus.cli import commands
+
+    assert commands._timeout_budget() == 10.0, (
+        f"an unparseable TASKQ_TASK_TIMEOUT must fall back to 10.0; got "
+        f"{commands._timeout_budget()!r}"
+    )
+
+
+# NFR-09
+def test_fr05_env_max_workers_unparseable_falls_back_in_process(
+    taskq_home, monkeypatch
+):
+    """A non-numeric `TASKQ_MAX_WORKERS` falls back to the documented
+    default (4) instead of crashing. Covers lines 207-213."""
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "not-an-int")
+
+    from taskq_plus.cli import commands
+
+    assert commands._max_workers() == 4, (
+        f"an unparseable TASKQ_MAX_WORKERS must fall back to 4; got "
+        f"{commands._max_workers()!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_unknown_task_id_exits_2_in_process(taskq_home):
+    """`run <missing>` exits 2 with `run: task '<id>' not found` on
+    stderr. Covers lines 352-355."""
+    exit_code, _stdout, stderr = _capture_main(["run", "deadbeef"])
+
+    assert exit_code == 2, (
+        f"unknown run id must exit 2; got {exit_code}; stderr={stderr!r}"
+    )
+    assert "run: task 'deadbeef' not found" in stderr, (
+        f"stderr must name the missing id; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_breaker_open_short_circuits_in_process(
+    taskq_home, monkeypatch
+):
+    """A pre-failed `breaker.json` causes `run` to short-circuit with
+    exit 3 and `breaker open` on stderr *before* any subprocess. Covers
+    lines 345-350."""
+    # Submit a task we will try to run.
+    exit_code, stdout, _stderr = _capture_main(["submit", "echo hi"])
+    assert exit_code == 0
+    task_id = stdout.strip()
+
+    # Plant an OPEN breaker file at the same $TASKQ_HOME the in-process
+    # dispatcher resolves to.
+    (taskq_home / "breaker.json").write_text(
+        _json.dumps(
+            {
+                "state": "OPEN",
+                "failure_count": 3,
+                "opened_at": None,
+                "threshold": 3,
+                "cooldown_s": 60.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code, _stdout, stderr = _capture_main(["run", task_id])
+
+    assert exit_code == 3, (
+        f"a pre-OPEN breaker must short-circuit with exit 3; got "
+        f"{exit_code}; stderr={stderr!r}"
+    )
+    assert "breaker open" in stderr, (
+        f"stderr must announce the breaker; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_cached_path_short_circuits_executor_in_process(taskq_home):
+    """A primed `cache.json` entry causes `run <id> --cached` to copy
+    the entry into the task and exit 0 without invoking the executor.
+    Covers lines 360-372."""
+    from datetime import datetime, timezone
+
+    exit_code, stdout, _stderr = _capture_main(["submit", "echo hi"])
+    assert exit_code == 0
+    task_id = stdout.strip()
+
+    # Prime the cache with a fresh "done" entry whose `command` matches
+    # the submitted task.
+    sig = _hash_command("echo hi")
+    finished_at = datetime.now(tz=timezone.utc).isoformat()
+    (taskq_home / "cache.json").write_text(
+        _json.dumps(
+            {
+                sig: {
+                    "command": "echo hi",
+                    "exit_code": 0,
+                    "stdout_tail": "primed-cached-output\n",
+                    "finished_at": finished_at,
+                    "status": "done",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code, _stdout, stderr = _capture_main(["run", task_id, "--cached"])
+    assert exit_code == 0, (
+        f"`run --cached` against a primed cache must exit 0; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+
+    # The on-disk record must carry the cached fields.
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    assert records[task_id]["cached"] is True, (
+        f"the cached path must persist cached=True; got "
+        f"{records[task_id]['cached']!r}"
+    )
+    assert records[task_id]["status"] == "done", (
+        f"the cached path must persist status=done; got "
+        f"{records[task_id]['status']!r}"
+    )
+    assert records[task_id]["stdout_tail"] == "primed-cached-output\n", (
+        f"the cached path must copy the cached stdout_tail; got "
+        f"{records[task_id].get('stdout_tail')!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_records_failure_on_failed_command_in_process(taskq_home):
+    """`run` of a `false` command records a breaker failure and returns
+    0 (the per-task failure is in the task's `status`, not the CLI exit
+    code). Covers lines 396-400."""
+    exit_code, stdout, _stderr = _capture_main(["submit", "false"])
+    assert exit_code == 0
+    task_id = stdout.strip()
+
+    run_exit, _stdout, _stderr = _capture_main(["run", task_id])
+    assert run_exit == 0, (
+        f"a failed task must still let the CLI exit 0; got {run_exit}"
+    )
+
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    assert records[task_id]["status"] == "failed", (
+        f"a `false` task must persist status=failed; got "
+        f"{records[task_id]['status']!r}"
+    )
+
+    breaker_path = taskq_home / "breaker.json"
+    assert breaker_path.exists(), (
+        f"the breaker must be persisted after a failure; missing "
+        f"{breaker_path}"
+    )
+    payload = _json.loads(breaker_path.read_text(encoding="utf-8"))
+    assert payload.get("failure_count", 0) >= 1, (
+        f"a single failure must record failure_count >= 1; got {payload!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_returns_4_on_timeout_in_process(taskq_home, monkeypatch):
+    """`run` of a `sleep 5` command with `TASKQ_TASK_TIMEOUT=1` exits 4
+    and persists `status=timeout`. Covers line 403."""
+    monkeypatch.setenv("TASKQ_TASK_TIMEOUT", "1")
+
+    exit_code, stdout, _stderr = _capture_main(["submit", "sleep 5"])
+    assert exit_code == 0
+    task_id = stdout.strip()
+
+    run_exit, _stdout, _stderr = _capture_main(["run", task_id])
+    assert run_exit == 4, (
+        f"a timed-out task must exit 4; got {run_exit}"
+    )
+
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    assert records[task_id]["status"] == "timeout", (
+        f"a timed-out task must persist status=timeout; got "
+        f"{records[task_id]['status']!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_all_dispatches_pending_tasks_in_process(taskq_home):
+    """`run --all` with two pending tasks executes both via the thread
+    pool. Covers `_run_all` (lines 415-426)."""
+    _submit_in_process("echo a")
+    _submit_in_process("echo b")
+
+    exit_code, _stdout, stderr = _capture_main(["run", "--all"])
+    assert exit_code == 0, (
+        f"`run --all` with pending tasks must exit 0; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    for task_id, record in records.items():
+        assert record["status"] == "done", (
+            f"`run --all` must execute every pending task; got "
+            f"{records[task_id]['status']!r} for {task_id!r}"
+        )
+
+
+# NFR-09
+def test_fr05_run_all_with_no_pending_returns_0_in_process(taskq_home):
+    """`run --all` against an empty queue returns 0 (the `if not pending`
+    early-return branch in `_run_all`). Covers lines 416-417."""
+    exit_code, _stdout, stderr = _capture_main(["run", "--all"])
+    assert exit_code == 0, (
+        f"`run --all` against an empty queue must exit 0; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Coverage helpers
+# ---------------------------------------------------------------------------
+
+
+def _hash_command(command: str) -> str:
+    """Return the FR-04 sha256 signature for `command` (matches
+    `taskq_plus.service.cache.signature`)."""
+    import hashlib as _hashlib
+
+    return _hashlib.sha256(command.encode("utf-8")).hexdigest()

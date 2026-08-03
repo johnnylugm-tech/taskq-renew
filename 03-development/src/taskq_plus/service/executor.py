@@ -33,7 +33,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, List, Optional, Sequence, cast
+from typing import Callable, Optional, Sequence, cast
 
 from taskq_plus.models.task import Task
 

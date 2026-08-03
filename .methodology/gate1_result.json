@@ -1,0 +1,86 @@
+{
+  "gate": 1,
+  "phase": 3,
+  "fr_id": "FR-01",
+  "overall_score": 100.0,
+  "quality_complete": true,
+  "rounds_used": 1,
+  "breakdown": {
+    "linting": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "All checks passed!"
+    },
+    "type_safety": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785792530853\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 10, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.473}}"
+    },
+    "test_coverage": {
+      "score": 100.0,
+      "threshold": 100,
+      "tests_passed": 26,
+      "tests_failed": 0,
+      "tests_skipped": 0,
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\ncollected 26 items\n\n03-development/tests/test_fr01.py ..........................             [100%]\n\n============================== 26 passed in 0.59s ===============================\nCoverage: 100% (168/168 stmts) across commands.py, task.py, task_store.py\nSpec coverage: 7/7 required tests present (100%)"
+    },
+    "architecture_constraints": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "Import Linter\n=============\n\nContracts\n---------\n\nAnalyzed 10 files, 10 dependencies.\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken."
+    }
+  },
+  "enforcer_sha": "100cda594c57a2ad72030b4f7a4d58a395504a3e",
+  "enforcer_surface": {
+    "core/quality_gate": "4320ec427d1835f8763ba3a0c4f470b107e65f5c",
+    "harness/harness_bridge.py": "7160c981901a75636055b7c75024f67c2ab04254",
+    "harness/gate_configs": "8735bb31aaa3bd32117548e651ec1c605a255f10"
+  },
+  "evidence_digest": {
+    "mutation_testing::setup.cfg": {
+      "source": "setup.cfg (score-altering exclusions)",
+      "kind": "file",
+      "sha256": "70e956215ef16796acf24d39eb9a9cbfca4b7f7aba356e6ead8047eb7920ffa2",
+      "bytes": 490,
+      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py"
+    },
+    "test_coverage::setup.cfg": {
+      "source": "setup.cfg (score-altering exclusions)",
+      "kind": "file",
+      "sha256": "70e956215ef16796acf24d39eb9a9cbfca4b7f7aba356e6ead8047eb7920ffa2",
+      "bytes": 490,
+      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py"
+    },
+    "linting": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
+      "bytes": 18,
+      "head": "All checks passed!"
+    },
+    "type_safety": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "42ba6b73aeacc2f7dcc7f9d7939b7f2e5ddfa05cf17c641b97eac512b4ef6d2f",
+      "bytes": 186,
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785792530853\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 10, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.473}}"
+    },
+    "test_coverage": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "e812b8d26480ddd8ea2b481a1508e2e9f8f215702c539a94382a961267235c24",
+      "bytes": 448,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\ncollected 26 items\n\n03-development/tests/test_fr01.py ..........................             [100%]\n\n============================== 26 passed in 0.59s ===============================\nCoverage: 100% (168/168 stmts) across commands.py, task.py, task_store.py\nSpec coverage: 7/7 required tests present (100%)"
+    },
+    "architecture_constraints": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "4a7bf764647da9eac4a9307977d79cee5e865b09315efcb07dfcbbf40b6216c8",
+      "bytes": 232,
+      "head": "Import Linter\n=============\n\nContracts\n---------\n\nAnalyzed 10 files, 10 dependencies.\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken."
+    }
+  },
+  "composite_score": 100.0,
+  "verdict": "PASS",
+  "passed": true
+}

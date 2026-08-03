@@ -1,0 +1,33 @@
+[importlinter]
+root_package = taskq_plus
+include_external_packages = False
+
+[importlinter:contract:storage-not-pulling-cli]
+name = storage-not-pulling-cli
+type = forbidden
+forbidden_modules =
+    taskq_plus.cli
+source_modules =
+    taskq_plus.storage
+
+[importlinter:contract:models-not-pulling-storage]
+name = models-not-pulling-storage
+type = forbidden
+forbidden_modules =
+    taskq_plus.storage
+source_modules =
+    taskq_plus.models
+
+[importlinter:contract:models-not-pulling-cli]
+name = models-not-pulling-cli
+type = forbidden
+forbidden_modules =
+    taskq_plus.cli
+source_modules =
+    taskq_plus.models
+
+[importlinter:contract:config-is-independent]
+name = config-is-independent
+type = independence
+modules =
+    taskq_plus.config

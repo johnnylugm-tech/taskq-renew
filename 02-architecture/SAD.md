@@ -787,6 +787,14 @@ security_design:
       owner_module: "taskq_plus.storage.task_store"
       nfr: NFR-03
       verified_by: "test_nfr03_store_corruption_exits_one"
+    - id: T-07
+      boundary: TB-05
+      category: information_disclosure
+      description: "cache.json persists command string and subprocess stdout; if either embeds a secret, it lands on disk unredacted"
+      mitigation: "cache_store reuses the same redaction regex as observability.audit (sk-[A-Za-z0-9_-]{8,}|token=\\S+|Bearer\\s+\\S+) before persisting cache entry"
+      owner_module: "taskq_plus.storage.cache_store"
+      nfr: NFR-04
+      verified_by: "test_nfr04_cache_entry_redacts_secrets"
 ```
 <!-- SEC:END -->
 

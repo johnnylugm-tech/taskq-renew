@@ -156,27 +156,26 @@ def _max_workers() -> int:
         return DEFAULT_MAX_WORKERS
 
 
-def _execute_and_persist(task: Task, *, use_disk: bool) -> str:
-    """[FR-02] Execute `task` through the executor and write the result.
-
-    Returns the task's terminal status. The store is selected via
-    `use_disk` so the CLI subprocess path and the in-process test path
-    share the same dispatch though they address different backends.
-    """
-    timeout = _timeout_budget()
-    result = run_task(task, timeout=timeout)
-    store = get_store(use_disk=use_disk)
+def _persist_result(store, task: Task, result) -> None:
+    """[FR-02] Persist every field produced by a task execution."""
+    result_fields = {
+        "status": result.status,
+        "exit_code": result.exit_code,
+        "stdout_tail": result.stdout_tail,
+        "stderr_tail": result.stderr_tail,
+        "duration_ms": result.duration_ms,
+        "finished_at": result.finished_at,
+    }
     store.update(
         task.id,
-        lambda t: t.model_copy(update={
-            "status": result.status,
-            "exit_code": result.exit_code,
-            "stdout_tail": result.stdout_tail,
-            "stderr_tail": result.stderr_tail,
-            "duration_ms": result.duration_ms,
-            "finished_at": result.finished_at,
-        }),
+        lambda stored_task: stored_task.model_copy(update=result_fields),
     )
+
+
+def _execute_and_persist(task: Task, *, store) -> str:
+    """[FR-02] Execute `task`, persist its result, and return its status."""
+    result = run_task(task, timeout=_timeout_budget())
+    _persist_result(store, task, result)
     return result.status
 
 
@@ -277,7 +276,7 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         print(f"run: task {args.task_id!r} not found", file=sys.stderr)
         return 2
 
-    status = _execute_and_persist(task, use_disk=use_disk)
+    status = _execute_and_persist(task, store=store)
     if status == "timeout":
         return 4
     return 0
@@ -296,19 +295,7 @@ def _run_all(store) -> int:
         return 0
 
     def _worker(task: Task) -> None:
-        timeout = _timeout_budget()
-        result = run_task(task, timeout=timeout)
-        store.update(
-            task.id,
-            lambda t: t.model_copy(update={
-                "status": result.status,
-                "exit_code": result.exit_code,
-                "stdout_tail": result.stdout_tail,
-                "stderr_tail": result.stderr_tail,
-                "duration_ms": result.duration_ms,
-                "finished_at": result.finished_at,
-            }),
-        )
+        _execute_and_persist(task, store=store)
 
     max_workers = max(1, min(_max_workers(), len(pending)))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:

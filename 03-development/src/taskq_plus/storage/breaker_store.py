@@ -134,7 +134,7 @@ class BreakerStore:
                 json.dump(payload, fh, ensure_ascii=False, indent=2)
             os.chmod(tmp_name, 0o644)
             os.replace(tmp_name, self._path)
-        except Exception:
+        except BaseException:  # pragma: no cover — atomic-write cleanup, see core.atomic_io
             if os.path.exists(tmp_name):
                 os.unlink(tmp_name)
             raise

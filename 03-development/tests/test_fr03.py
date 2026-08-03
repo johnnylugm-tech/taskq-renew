@@ -898,3 +898,287 @@ def test_fr03_inprocess_run_returns_exit_3_when_breaker_open(
         f"breaker-rejected run must leave task status=pending; "
         f"got {reloaded.status!r} (subprocess was launched)"
     )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.breaker` — branch coverage for Breaker.check()
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr03_breaker_check_when_state_not_open_is_noop():
+    """`Breaker.check()` is a no-op when the breaker is not OPEN —
+    the cooldown gate only applies to an OPEN breaker. A CLOSED
+    breaker must stay CLOSED through any number of `check()` calls
+    and never transition to HALF_OPEN.
+
+    Covers `taskq_plus.service.breaker.Breaker.check` line 113
+    (the early return when `self.state != STATE_OPEN`).
+    """
+    from taskq_plus.service.breaker import Breaker
+
+    breaker = Breaker(threshold=3, cooldown_s=1.0)
+    assert breaker.state == "CLOSED"
+
+    # Multiple check() calls on a CLOSED breaker are all no-ops.
+    for _ in range(3):
+        breaker.check()
+    assert breaker.state == "CLOSED", (
+        f"check() on a CLOSED breaker must leave state=CLOSED; "
+        f"got {breaker.state!r}"
+    )
+
+
+# NFR-09
+def test_fr03_breaker_check_when_opened_at_is_none_is_noop():
+    """`Breaker.check()` is a no-op when the breaker is OPEN but
+    `opened_at` has not been anchored (e.g. a state hydrated directly
+    from disk with `opened_at=null`). The cooldown gate cannot be
+    computed without a timestamp, so the breaker must stay OPEN
+    until `record_failure` re-anchors `opened_at`.
+
+    Covers `taskq_plus.service.breaker.Breaker.check` line 115
+    (the early return when `self.opened_at is None`).
+    """
+    from taskq_plus.service.breaker import Breaker, STATE_OPEN
+
+    fake_now = [1_000.0]
+
+    def clock() -> float:
+        return fake_now[0]
+
+    breaker = Breaker(threshold=3, cooldown_s=1.0, clock=clock)
+    # Force the OPEN state without going through record_failure so
+    # `opened_at` stays None.
+    breaker.state = STATE_OPEN
+    breaker.opened_at = None
+
+    # Advance the clock well past the cooldown. Without an
+    # `opened_at` anchor, the gate must NOT open.
+    fake_now[0] += 100.0
+    breaker.check()
+    assert breaker.state == "OPEN", (
+        f"check() with opened_at=None must leave state=OPEN; "
+        f"got {breaker.state!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.executor` — branch coverage for the env-var parser
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr03_executor_env_value_returns_default_when_unset(monkeypatch):
+    """`_env_value` returns the supplied default when the env var is
+    unset or empty (the read is `os.environ.get(name, "")`, which
+    yields the empty string for both `unsetenv` and `setenv("")`).
+
+    Covers `taskq_plus.service.executor._env_value` line 64
+    (the `return default` branch when `raw == ""`).
+    """
+    from taskq_plus.service.executor import _env_value
+
+    # Make sure the variable is unset.
+    monkeypatch.delenv("TASKQ_TEST_UNSET_VAR", raising=False)
+
+    # The function must return the default for both the int and float
+    # ctor paths because the empty-string branch is the first check.
+    assert _env_value("TASKQ_TEST_UNSET_VAR", 99, int) == 99, (
+        "_env_value with unset env must return the int default"
+    )
+    assert _env_value("TASKQ_TEST_UNSET_VAR", 7.5, float) == 7.5, (
+        "_env_value with unset env must return the float default"
+    )
+
+    # And the same branch is hit when the variable is present-but-empty.
+    monkeypatch.setenv("TASKQ_TEST_UNSET_VAR", "")
+    assert _env_value("TASKQ_TEST_UNSET_VAR", 42, int) == 42, (
+        "_env_value with empty env must return the default"
+    )
+
+
+# NFR-09
+def test_fr03_executor_env_value_falls_back_on_invalid_value(monkeypatch):
+    """`_env_value` returns the default when the env var is set to a
+    value the typed ctor cannot parse (e.g. `int("abc")` raises
+    `ValueError`; `_env_value` catches `ValueError` and `TypeError`).
+
+    Covers `taskq_plus.service.executor._env_value` lines 67–68
+    (the `except (ValueError, TypeError): return default` branch).
+    """
+    from taskq_plus.service.executor import _env_value
+
+    # int() raises ValueError on non-numeric strings.
+    monkeypatch.setenv("TASKQ_TEST_BAD_INT", "not-a-number")
+    assert _env_value("TASKQ_TEST_BAD_INT", 99, int) == 99, (
+        "_env_value with unparseable int env must return the default"
+    )
+
+    # float() raises ValueError on non-numeric strings.
+    monkeypatch.setenv("TASKQ_TEST_BAD_FLOAT", "not-a-float")
+    assert _env_value("TASKQ_TEST_BAD_FLOAT", 3.5, float) == 3.5, (
+        "_env_value with unparseable float env must return the default"
+    )
+
+
+# NFR-09
+def test_fr03_executor_tail_truncates_text_over_two_thousand_chars():
+    """`_tail` returns the last `TAIL_CHARS` (2000) characters of an
+    over-long string — the executor's stdout/stderr tail invariant
+    from SPEC §3 FR-02 line 116.
+
+    Covers `taskq_plus.service.executor._tail` line 87
+    (the `return text[-TAIL_CHARS:]` slicing branch).
+    """
+    from taskq_plus.service.executor import _tail, TAIL_CHARS
+
+    long_text = "x" * (TAIL_CHARS + 500)
+    truncated = _tail(long_text)
+    assert truncated is not None
+    assert len(truncated) == TAIL_CHARS, (
+        f"_tail must truncate to TAIL_CHARS={TAIL_CHARS}; got {len(truncated)}"
+    )
+    # The kept slice must be the LAST TAIL_CHARS of the input — the
+    # tail invariant means "the most recent N chars", not "the first
+    # N chars".
+    assert truncated == long_text[-TAIL_CHARS:], (
+        "_tail must keep the LAST TAIL_CHARS characters"
+    )
+
+
+# NFR-09
+def test_fr03_executor_run_with_retry_rejects_empty_commands():
+    """`run_with_retry(commands=[], ...)` raises `ValueError` because
+    the function requires at least one command. An empty sequence has
+    no first attempt to dispatch.
+
+    Covers `taskq_plus.service.executor.run_with_retry` line 237
+    (the `raise ValueError(...)` precondition check).
+    """
+    from taskq_plus.service.executor import run_with_retry
+
+    sleep_calls: list = []
+
+    def recording_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    raised = False
+    try:
+        run_with_retry([], timeout=1.0, sleep_fn=recording_sleep)
+    except ValueError as exc:
+        raised = True
+        assert "at least one command" in str(exc), (
+            f"ValueError message must mention 'at least one command'; "
+            f"got {exc!r}"
+        )
+    assert raised, (
+        "run_with_retry([]) must raise ValueError; the empty-commands "
+        "precondition is part of the FR-03 retry contract"
+    )
+    # And the function must NOT have invoked the sleep function — the
+    # precondition is checked before the loop, so no backoff is
+    # recorded.
+    assert sleep_calls == [], (
+        f"precondition failure must not invoke sleep_fn; got {sleep_calls!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.storage.breaker_store` — branch coverage for BreakerStore.load
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr03_breaker_store_load_returns_fresh_breaker_when_file_missing(
+    taskq_home, monkeypatch
+):
+    """`BreakerStore.load()` returns a fresh `Breaker` (CLOSED,
+    count=0, opened_at=None) when the file does not exist on disk —
+    the no-prior-state short-circuit. This is the first-run path
+    the store must support.
+
+    Covers `taskq_plus.storage.breaker_store.BreakerStore.load`
+    line 83 (the early `return breaker` when the file is missing).
+    """
+    from taskq_plus.service.breaker import Breaker
+    from taskq_plus.storage.breaker_store import (
+        make_breaker_store,
+        reset_breaker_store_cache,
+    )
+
+    reset_breaker_store_cache()
+
+    # The file must NOT exist for the missing-file branch to fire.
+    breaker_file = taskq_home / "breaker.json"
+    assert not breaker_file.exists(), (
+        f"precondition: breaker.json must not exist; found {breaker_file}"
+    )
+
+    store = make_breaker_store()
+    loaded = store.load()
+    assert isinstance(loaded, Breaker)
+    assert loaded.state == "CLOSED", (
+        f"missing-file load must yield CLOSED; got {loaded.state!r}"
+    )
+    assert loaded.failure_count == 0, (
+        f"missing-file load must yield failure_count=0; got "
+        f"{loaded.failure_count!r}"
+    )
+    assert loaded.opened_at is None, (
+        f"missing-file load must yield opened_at=None; got "
+        f"{loaded.opened_at!r}"
+    )
+
+
+# NFR-09
+def test_fr03_breaker_store_load_sanitises_invalid_state_value(
+    taskq_home, monkeypatch
+):
+    """`BreakerStore.load()` sanitises a persisted `state` value that
+    is not one of CLOSED / OPEN / HALF_OPEN — it falls back to
+    `STATE_CLOSED` rather than rehydrating an unknown state that
+    the breaker logic does not understand. A corrupt or hand-edited
+    `breaker.json` must NOT yield an unusable breaker.
+
+    Covers `taskq_plus.storage.breaker_store.BreakerStore.load`
+    line 90 (the `state = STATE_CLOSED` fallback when the persisted
+    state is invalid).
+    """
+    from taskq_plus.storage.breaker_store import (
+        make_breaker_store,
+        reset_breaker_store_cache,
+    )
+
+    reset_breaker_store_cache()
+
+    # Hand-write a breaker.json with a state value the breaker logic
+    # does not recognise. The payload also includes a stale
+    # failure_count to verify the sanitisation does NOT zero the
+    # count — only the state is replaced.
+    breaker_file = taskq_home / "breaker.json"
+    breaker_file.write_text(
+        _json.dumps(
+            {
+                "state": "BANANA",  # not CLOSED / OPEN / HALF_OPEN
+                "failure_count": 5,
+                "opened_at": None,
+                "threshold": 3,
+                "cooldown_s": 1.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    store = make_breaker_store()
+    loaded = store.load()
+    assert loaded.state == "CLOSED", (
+        f"invalid persisted state must be sanitised to CLOSED; "
+        f"got {loaded.state!r}"
+    )
+    # The failure_count survives the state sanitisation — the
+    # breaker still records it on the next record_failure.
+    assert loaded.failure_count == 5, (
+        f"failure_count must survive state sanitisation; got "
+        f"{loaded.failure_count!r}"
+    )

@@ -669,3 +669,284 @@ def test_fr04_inprocess_run_with_cached_replays_done(
         f"in-process cached run must replay cached stdout_tail="
         f"{sentinel_stdout!r}; got {reloaded.stdout_tail!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.cache` — `cache_ttl()` env handling
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr04_cache_ttl_returns_default_when_env_unset(monkeypatch):
+    """`cache_ttl()` returns `DEFAULT_CACHE_TTL` when
+    `TASKQ_CACHE_TTL` is unset.
+
+    GREEN TODO: when `TASKQ_CACHE_TTL` is unset (or empty), the
+    helper must return `DEFAULT_CACHE_TTL` (60 s).
+    """
+    from taskq_plus.service.cache import DEFAULT_CACHE_TTL, cache_ttl
+
+    monkeypatch.delenv("TASKQ_CACHE_TTL", raising=False)
+    assert cache_ttl() == DEFAULT_CACHE_TTL, (
+        f"cache_ttl with unset env must equal DEFAULT_CACHE_TTL "
+        f"({DEFAULT_CACHE_TTL}); got {cache_ttl()!r}"
+    )
+
+
+# NFR-09
+def test_fr04_cache_ttl_returns_default_on_non_numeric_env(monkeypatch):
+    """`cache_ttl()` returns `DEFAULT_CACHE_TTL` when
+    `TASKQ_CACHE_TTL` is set to a non-numeric value.
+
+    GREEN TODO: a non-numeric `TASKQ_CACHE_TTL` value must be
+    treated as an unset TTL (fallback to `DEFAULT_CACHE_TTL`) — not
+    as a hard error that aborts the run.
+    """
+    from taskq_plus.service.cache import DEFAULT_CACHE_TTL, cache_ttl
+
+    monkeypatch.setenv("TASKQ_CACHE_TTL", "not-a-number")
+    assert cache_ttl() == DEFAULT_CACHE_TTL, (
+        f"cache_ttl with non-numeric env must equal DEFAULT_CACHE_TTL; "
+        f"got {cache_ttl()!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.cache` — `_parse_timestamp()` coercion paths
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr04_parse_timestamp_accepts_numeric_input():
+    """`_parse_timestamp` returns the float value for numeric inputs.
+
+    GREEN TODO: numeric inputs (int / float) are passed through
+    `float(...)` — the same float the caller would have written
+    in JSON. The dispatcher's TTL math relies on this pass-through.
+    """
+    from taskq_plus.service.cache import _parse_timestamp
+
+    assert _parse_timestamp(123.456) == 123.456, (
+        f"float input must round-trip; got {_parse_timestamp(123.456)!r}"
+    )
+    assert _parse_timestamp(789) == 789.0, (
+        f"int input must coerce to float; got {_parse_timestamp(789)!r}"
+    )
+
+
+# NFR-09
+def test_fr04_parse_timestamp_returns_none_for_unsupported_types():
+    """`_parse_timestamp` returns `None` for non-string non-numeric
+    inputs (None, dict, list, etc.).
+
+    GREEN TODO: the helper must short-circuit to `None` when given a
+    type it cannot interpret — the caller treats `None` as a cache
+    miss.
+    """
+    from taskq_plus.service.cache import _parse_timestamp
+
+    for unsupported in (None, {"key": "value"}, [1, 2, 3], (1, 2), object()):
+        assert _parse_timestamp(unsupported) is None, (
+            f"_parse_timestamp({unsupported!r}) must return None; "
+            f"got {_parse_timestamp(unsupported)!r}"
+        )
+
+
+# NFR-09
+def test_fr04_parse_timestamp_returns_none_on_unparseable_string():
+    """`_parse_timestamp` returns `None` when a string cannot be
+    parsed as ISO-8601.
+
+    GREEN TODO: a string that is not a valid ISO-8601 datetime
+    (e.g. `"definitely-not-a-date"`, or an empty string) must yield
+    `None` so the dispatcher treats the entry as a miss instead of
+    propagating the parse error.
+    """
+    from taskq_plus.service.cache import _parse_timestamp
+
+    for bad in ("definitely-not-a-date", "", "not iso at all"):
+        assert _parse_timestamp(bad) is None, (
+            f"_parse_timestamp({bad!r}) must return None for "
+            f"unparseable strings; got {_parse_timestamp(bad)!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.cache` — `_is_fresh()` decision branches
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr04_is_fresh_returns_false_when_status_is_not_done():
+    """`_is_fresh` returns `False` when the entry's `status` is not
+    `"done"`.
+
+    GREEN TODO: only `status="done"` records are eligible for replay;
+    any other status (e.g. `"failed"`, `"running"`) is a miss.
+    """
+    from taskq_plus.service.cache import _is_fresh
+
+    entry = {
+        "status": "failed",
+        "finished_at": "2026-08-04T00:00:00+00:00",
+    }
+    assert _is_fresh(entry, now=1.0, ttl_s=60.0) is False, (
+        f"non-done status must short-circuit to False; got "
+        f"{_is_fresh(entry, now=1.0, ttl_s=60.0)!r}"
+    )
+
+
+# NFR-09
+def test_fr04_is_fresh_returns_false_when_finished_at_is_unparseable():
+    """`_is_fresh` returns `False` when `finished_at` cannot be
+    parsed as a timestamp.
+
+    GREEN TODO: a `done` entry with an unreadable `finished_at` is
+    treated as a miss — the helper must not raise; it must short-
+    circuit to `False`.
+    """
+    from taskq_plus.service.cache import _is_fresh
+
+    entry = {
+        "status": "done",
+        "finished_at": "not-a-timestamp",
+    }
+    assert _is_fresh(entry, now=1.0, ttl_s=60.0) is False, (
+        f"unparseable finished_at must short-circuit to False; got "
+        f"{_is_fresh(entry, now=1.0, ttl_s=60.0)!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.cache` — `record()` end-to-end persistence
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr04_record_stores_entry_under_command_signature(
+    taskq_home, monkeypatch
+):
+    """`record(command, entry)` persists `entry` under
+    `sha256(command)` so a subsequent `lookup` can replay it.
+
+    GREEN TODO: `record` must read the existing cache, index the
+    entry under `signature(command)`, and write the result back
+    atomically. The on-disk shape must round-trip through
+    `CacheStore.load()`.
+    """
+    from taskq_plus.service.cache import record
+    from taskq_plus.storage.cache_store import make_cache_store
+
+    command = "echo recorded"
+    entry = {
+        "command": command,
+        "exit_code": 0,
+        "stdout_tail": "recorded",
+        "finished_at": "2026-08-04T00:00:00+00:00",
+        "status": "done",
+    }
+    record(command, entry)
+
+    cache_file = taskq_home / "cache.json"
+    assert cache_file.exists(), (
+        f"cache.json must be written by record(); expected {cache_file}"
+    )
+
+    expected_signature = _command_signature(command)
+    loaded = make_cache_store().load()
+    assert loaded.get(expected_signature) == entry, (
+        f"record must persist entry under sha256(command); "
+        f"missing key {expected_signature!r} in {list(loaded)!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.storage.cache_store` — `load()` error short-circuits
+# ---------------------------------------------------------------------------
+
+
+# NFR-09 / NP-07 (SAD-forced dependency fault)
+def test_fr04_cache_store_load_returns_empty_when_payload_is_not_dict(
+    taskq_home, monkeypatch
+):
+    """`CacheStore.load()` returns `{}` when `cache.json` parses as
+    valid JSON but the top-level payload is not a dict.
+
+    GREEN TODO: the load helper must reject non-dict top-level
+    payloads (e.g. a JSON array) and fall back to an empty cache —
+    the dispatcher's lookup expects `dict.get(signature)` semantics.
+    """
+    from taskq_plus.storage.cache_store import make_cache_store
+
+    cache_file = taskq_home / "cache.json"
+    cache_file.write_text("[1, 2, 3]", encoding="utf-8")
+
+    store = make_cache_store()
+    assert store.load() == {}, (
+        f"non-dict JSON payload must yield empty dict; got {store.load()!r}"
+    )
+
+
+# NFR-09 / NP-07 (SAD-forced dependency fault)
+def test_fr04_cache_store_load_returns_empty_on_corrupt_json(
+    taskq_home, monkeypatch
+):
+    """`CacheStore.load()` returns `{}` when `cache.json` contains
+    invalid JSON — the corrupt-cache fault path.
+
+    GREEN TODO: a `json.JSONDecodeError` (or any
+    `OSError`/`ValueError`/`TypeError` from `open`/`load`) must be
+    swallowed and the loader must return an empty dict — NP-07.
+    """
+    from taskq_plus.storage.cache_store import make_cache_store
+
+    cache_file = taskq_home / "cache.json"
+    cache_file.write_text("{not json", encoding="utf-8")
+
+    store = make_cache_store()
+    assert store.load() == {}, (
+        f"corrupt cache.json must yield empty dict (NP-07); "
+        f"got {store.load()!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.storage.cache_store` — atomic-write cleanup on failure
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr04_cache_store_write_atomic_cleans_up_temp_file_on_failure(
+    taskq_home, monkeypatch
+):
+    """If the atomic write fails partway through, the temporary file
+    is removed before the exception propagates — NFR-03 atomicity.
+
+    GREEN TODO: `_write_atomic` must catch the failure, unlink the
+    leftover temp file, and re-raise so the disk state is left
+    exactly as it was before the save attempt.
+    """
+    import pytest
+
+    import taskq_plus.storage.cache_store as cache_store_module
+    from taskq_plus.storage.cache_store import CacheStore
+
+    store = CacheStore(path=taskq_home / "cache.json")
+
+    # Force `os.replace` to fail so the cleanup branch fires.
+    def _failing_replace(src, dst):
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr(cache_store_module.os, "replace", _failing_replace)
+
+    with pytest.raises(OSError, match="simulated replace failure"):
+        store.save({"key": "value"})
+
+    leftover_tmp = sorted(
+        f.name for f in taskq_home.iterdir()
+        if f.name.startswith(".cache.") and f.name.endswith(".json.tmp")
+    )
+    assert leftover_tmp == [], (
+        f"atomic-write cleanup must remove the leftover tmp file; "
+        f"found {leftover_tmp!r}"
+    )

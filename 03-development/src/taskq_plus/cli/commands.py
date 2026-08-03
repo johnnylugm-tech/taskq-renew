@@ -84,6 +84,16 @@ def _format_validation_error(err: ValidationError) -> str:
     return msg
 
 
+def _emit_stderr_error(message: str) -> None:
+    """[FR-01] Print `submit: <message>` to stderr in one place.
+
+    Centralising the `submit:` prefix keeps the user-facing wording
+    consistent across the validation, name-uniqueness, and
+    dependency-existence rejection paths.
+    """
+    print(f"submit: {message}", file=sys.stderr)
+
+
 def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     """[FR-01] Run a `submit` invocation.
 
@@ -118,27 +128,21 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
             depends_on=list(args.after),
         )
     except ValidationError as exc:
-        print(f"submit: {_format_validation_error(exc)}", file=sys.stderr)
+        _emit_stderr_error(_format_validation_error(exc))
         return 2
 
     store = get_store(use_disk=use_disk)
 
     # Name uniqueness: pending/running only (SPEC §3 line 83).
     if submission.name is not None and store.contains_name(submission.name):
-        print(
-            f"submit: duplicate name: {submission.name}",
-            file=sys.stderr,
-        )
+        _emit_stderr_error(f"duplicate name: {submission.name}")
         return 2
 
     # Dependency existence: every --after id must already exist
     # (SPEC §3 line 84).
     for dep in submission.depends_on:
         if not store.has_id(dep):
-            print(
-                f"submit: unknown dependency: {dep}",
-                file=sys.stderr,
-            )
+            _emit_stderr_error(f"unknown dependency: {dep}")
             return 2
 
     task = Task(

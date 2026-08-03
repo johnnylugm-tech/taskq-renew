@@ -30,10 +30,21 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Protocol, runtime_checkable
+from typing import Dict, Iterable, List, Protocol, runtime_checkable
 
 from taskq_plus.config import tasks_path
 from taskq_plus.models.task import Task
+
+#: [FR-01] Statuses that still hold a name slot. SPEC §3 line 83 — name
+#: uniqueness only applies to tasks that are pending or running; done /
+#: failed tasks free the name for reuse.
+_ACTIVE_STATUSES: frozenset[str] = frozenset({"pending", "running"})
+
+
+def _has_active_name(tasks: Iterable[Task], name: str) -> bool:
+    """[FR-01] True iff any pending/running task in `tasks` has `name`."""
+    return any(t.name == name and t.status in _ACTIVE_STATUSES for t in tasks)
+
 
 #: Per-test module-level backend cache. Keyed by the *resolved* tasks
 #: path so the conftest's `taskq_home` fixture (which mints a fresh
@@ -65,10 +76,7 @@ class InMemoryBackend:
 
     def contains_name(self, name: str) -> bool:
         """[FR-01] True iff a pending/running task already has this name."""
-        for t in self._tasks:
-            if t.name == name and t.status in ("pending", "running"):
-                return True
-        return False
+        return _has_active_name(self._tasks, name)
 
 
 class DiskBackend:
@@ -105,10 +113,7 @@ class DiskBackend:
 
     def contains_name(self, name: str) -> bool:
         """[FR-01] True iff a pending/running task already has this name."""
-        for t in self.load():
-            if t.name == name and t.status in ("pending", "running"):
-                return True
-        return False
+        return _has_active_name(self.load(), name)
 
     def _write_atomic(self, payload: list) -> None:
         """[FR-01] Write JSON atomically: tmp + `Path.replace` (NFR-03).
@@ -159,10 +164,7 @@ class TaskStore:
 
     def has_id(self, task_id: str) -> bool:
         """[FR-01] True iff `task_id` matches an existing task."""
-        for t in self.load():
-            if t.id == task_id:
-                return True
-        return False
+        return any(t.id == task_id for t in self.load())
 
 
 def get_store(use_disk: bool = False) -> TaskStore:

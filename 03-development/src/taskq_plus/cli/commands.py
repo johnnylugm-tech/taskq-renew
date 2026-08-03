@@ -38,7 +38,9 @@ from typing import List, Optional
 from pydantic import ValidationError
 
 from taskq_plus.models.task import Task, TaskSubmission
+from taskq_plus.service.breaker import STATE_OPEN
 from taskq_plus.service.executor import run_task
+from taskq_plus.storage.breaker_store import make_breaker_store
 from taskq_plus.storage.task_store import get_store
 
 
@@ -240,7 +242,7 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
 
 
 def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
-    """[FR-02] Run a `run` invocation.
+    """[FR-02/FR-03] Run a `run` invocation.
 
     `argv` is the token list *after* the leading `run` keyword. Two
     shapes are supported:
@@ -248,9 +250,16 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         run <id>      execute the task with the given id
         run --all     execute every pending task concurrently
 
+    The per-task path consults the breaker (SPEC §3 FR-03) BEFORE
+    launching any subprocess: a still-OPEN breaker short-circuits with
+    exit 3 and stderr `breaker open`. After a successful or failed
+    execution the outcome is recorded on the breaker and the state is
+    persisted to `$TASKQ_HOME/breaker.json`.
+
     Returns:
         0 — done / failed (the failure is recorded in the task's
             `status` field; the CLI itself exits 0).
+        3 — breaker OPEN (the run was rejected before any subprocess).
         4 — single-task timeout (SPEC §3 FR-02 line 120).
         2 — invalid usage (no id and no --all; id not found).
 
@@ -258,6 +267,8 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         SPEC.md §3 FR-02 lines 105-118 — state machine.
         SPEC.md §3 FR-02 line 120 — single-task timeout → exit 4.
         SPEC.md §3 FR-02 line 122 — `--all` thread-pool dispatch.
+        SPEC.md §3 FR-03 — breaker rejection (`exit 3` + stderr
+            `breaker open`).
     """
     parser = _build_run_parser()
     args = parser.parse_args(list(argv) if argv is not None else [])
@@ -271,12 +282,33 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     if args.run_all:
         return _run_all(store)
 
+    # [FR-03] Breaker gate: reject the run BEFORE any task lookup or
+    # subprocess dispatch when the breaker is OPEN. The state is read
+    # fresh from `$TASKQ_HOME/breaker.json` so a flipped-to-OPEN
+    # subprocess directly preceding this call is honoured.
+    bstore = make_breaker_store()
+    breaker = bstore.load()
+    breaker.check()  # OPEN -> HALF_OPEN if cooldown elapsed (no-op on CLOSED)
+    if breaker.state == STATE_OPEN:
+        print("breaker open", file=sys.stderr)
+        return 3
+
     task = store.find(args.task_id)
     if task is None:
         print(f"run: task {args.task_id!r} not found", file=sys.stderr)
         return 2
 
     status = _execute_and_persist(task, store=store)
+
+    # [FR-03] Persist the outcome on the breaker. `done` resets the
+    # count to 0 (CLOSED — no failure memory); `failed` / `timeout`
+    # increment and may trip the breaker OPEN.
+    if status == "done":
+        breaker.record_success()
+    elif status in ("failed", "timeout"):
+        breaker.record_failure()
+    bstore.save(breaker)
+
     if status == "timeout":
         return 4
     return 0

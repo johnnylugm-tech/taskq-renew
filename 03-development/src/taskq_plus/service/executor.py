@@ -27,12 +27,13 @@ Citations:
 """
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional, cast
+from typing import Callable, List, Optional, Sequence, cast
 
 from taskq_plus.models.task import Task
 
@@ -40,6 +41,45 @@ from taskq_plus.models.task import Task
 #: [FR-02] Tail length for stdout_tail / stderr_tail (SPEC.md §3
 #: line 116 — last 2000 chars).
 TAIL_CHARS: int = 2000
+
+#: [FR-03] Default retry cap when `TASKQ_RETRY_LIMIT` is unset
+#: (SPEC.md §3 FR-03). Override per-call via the `retry_limit` kwarg.
+DEFAULT_RETRY_LIMIT: int = 1
+
+#: [FR-03] Default backoff base (seconds) when `TASKQ_BACKOFF_BASE`
+#: is unset (SPEC.md §3 FR-03 — `base * 2**n`).
+DEFAULT_BACKOFF_BASE: float = 1.0
+
+
+def _retry_limit_from_env() -> int:
+    """[FR-03] Read `TASKQ_RETRY_LIMIT` from the environment.
+
+    Returns the integer value, or `DEFAULT_RETRY_LIMIT` when unset,
+    empty, or non-numeric. Read at call time so `monkeypatch.setenv`
+    in the test suite picks up the override.
+    """
+    raw = os.environ.get("TASKQ_RETRY_LIMIT", "")
+    if raw == "":
+        return DEFAULT_RETRY_LIMIT
+    try:
+        return int(raw)
+    except ValueError:
+        return DEFAULT_RETRY_LIMIT
+
+
+def _backoff_base_from_env() -> float:
+    """[FR-03] Read `TASKQ_BACKOFF_BASE` from the environment.
+
+    Returns the float value (seconds), or `DEFAULT_BACKOFF_BASE` when
+    unset, empty, or non-numeric.
+    """
+    raw = os.environ.get("TASKQ_BACKOFF_BASE", "")
+    if raw == "":
+        return DEFAULT_BACKOFF_BASE
+    try:
+        return float(raw)
+    except ValueError:
+        return DEFAULT_BACKOFF_BASE
 
 
 def _tail(text: Optional[str]) -> Optional[str]:
@@ -142,3 +182,93 @@ def run_task(task: Task, *, timeout: float) -> TaskResult:
         duration_ms=duration_ms,
         finished_at=_utcnow(),
     )
+
+
+#: [FR-03] Statuses that trigger a retry under FR-03 (SPEC §3 FR-03 —
+#: `failed` or `timeout` are retryable; `done` is terminal success).
+_RETRYABLE_STATUSES = frozenset({"failed", "timeout"})
+
+
+def run_with_retry(
+    commands: Sequence[Task],
+    *,
+    timeout: float,
+    sleep_fn: Callable[[float], None] = time.sleep,
+    retry_limit: Optional[int] = None,
+    backoff_base: Optional[float] = None,
+) -> TaskResult:
+    """[FR-03] Execute `commands` with exponential retry policy.
+
+    Iterates `commands` in order, treating each entry as one attempt's
+    command body. An attempt whose result is `done` returns
+    immediately. An attempt whose result is `failed` or `timeout`
+    triggers an exponential backoff `backoff_base * 2**n` seconds
+    before the next attempt, where `n` is 1-indexed for the upcoming
+    retry (the first retry waits `base * 2**1`, the second
+    `base * 2**2`, etc.). The `sleep_fn` is injectable (default
+    `time.sleep`) so the test suite can substitute a recording fake
+    without real wall-clock time.
+
+    Args:
+        commands: One `Task` per attempt. The first is the original
+            command; subsequent entries are retry overrides (the test
+            suite uses `["false", "echo hi"]` to drive a transient
+            failure into success).
+        timeout: Per-attempt budget in seconds (forwarded to
+            `run_task`).
+        sleep_fn: Injectable sleep (default `time.sleep`).
+        retry_limit: Maximum number of retries (overrides
+            `TASKQ_RETRY_LIMIT` env when not None).
+        backoff_base: Multiplier for the exponential backoff formula
+            (overrides `TASKQ_BACKOFF_BASE` env when not None).
+
+    Returns:
+        The final `TaskResult` — either a success (`done`) from an
+        early attempt or the last attempt's outcome after exhausting
+        retries.
+
+    Citations:
+        SPEC.md §3 FR-03 — retry rule, exponential backoff
+            `base * 2**n`.
+        SPEC.md §3 FR-03 — sleep function injectable for testability.
+    """
+    if retry_limit is None:
+        retry_limit = _retry_limit_from_env()
+    if backoff_base is None:
+        backoff_base = _backoff_base_from_env()
+
+    attempts_total = len(commands)
+    if attempts_total == 0:
+        raise ValueError("run_with_retry requires at least one command")
+
+    last_result: Optional[TaskResult] = None
+    for idx, task in enumerate(commands):
+        result = run_task(task, timeout=timeout)
+        # First-attempt success never sleeps before retrying.
+        if result.status == "done":
+            return result
+
+        last_result = result
+
+        # Decide whether to retry: only retryable failures count,
+        # and only while retries remain AND there is a follow-up
+        # command in the sequence to run.
+        retries_done = idx  # already-exhausted retries
+        has_followup = idx + 1 < attempts_total
+        if (
+            result.status in _RETRYABLE_STATUSES
+            and has_followup
+            and retries_done < retry_limit
+        ):
+            backoff_index = idx + 1  # 1-indexed for the upcoming retry
+            sleep_seconds = backoff_base * (2 ** backoff_index)
+            sleep_fn(sleep_seconds)
+            continue
+        # Either done above, exhausted, or no follow-up → return.
+        return result
+
+    # `for/else` not used: the loop above always returns inside the
+    # final iteration when there is exactly one command. This branch
+    # is unreachable under the `attempts_total >= 1` precondition.
+    assert last_result is not None  # pragma: no cover — defensive
+    return last_result  # pragma: no cover — defensive

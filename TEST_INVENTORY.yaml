@@ -525,3 +525,115 @@ test_inventory:
     meta: {count: 8}
     readability: {count: 4}
     system: {count: 2}
+
+# --- Canonical P1 naming authority (harness scaffold schema v1.1) ---
+# Derived from test_inventory.tests above; names are identical and authoritative.
+fr_tests:
+  FR-01:
+    integration:
+      - test_fr01_submit_valid_command
+      - test_fr01_submit_empty_command_rejected
+      - test_fr01_submit_duplicate_name_rejected
+      - test_fr01_submit_unknown_dependency_rejected
+    security:
+      - test_fr01_submit_injection_command_rejected
+  FR-02:
+    error_handling:
+      - test_fr02_run_all_concurrent_write_is_atomic
+    integration:
+      - test_fr02_run_done_reproduces_result
+      - test_fr02_run_timeout_returns_exit_4
+    security:
+      - test_fr02_source_contains_no_shell_true
+  FR-03:
+    integration:
+      - test_fr03_breaker_open_rejects_run
+      - test_fr03_breaker_cooldown_closes_breaker
+    performance:
+      - test_fr03_breaker_recovery_within_cooldown_bound
+  FR-04:
+    integration:
+      - test_fr04_cached_run_replays_done_result
+      - test_fr04_expired_cache_reexecutes_command
+  FR-05:
+    integration:
+      - test_fr05_status_json_contains_all_task_fields
+      - test_fr05_clear_removes_all_data_files
+      - test_fr05_all_exit_codes_are_reachable
+  FR-06:
+    integration:
+      - test_fr06_run_all_respects_dependency_order_and_blocks
+      - test_fr06_cycle_submission_returns_cycle_path
+      - test_fr06_dag_depth_cap_rejects_deep_chain
+  FR-07:
+    integration:
+      - test_fr07_plugin_error_does_not_abort_task
+      - test_fr07_plugin_disables_after_three_failures
+    security:
+      - test_fr07_plugin_path_form_is_rejected
+  FR-08:
+    integration:
+      - test_fr08_submit_run_audit_events_share_correlation_id
+      - test_fr08_exports_agree_and_escape_csv_fields
+
+cross_cutting:
+  architecture:
+    - test_nfr06_import_linter_passes
+    - test_nfr06_layer_contract_and_config_independence_declared
+    - test_nfr06_crg_cohesion_setting_remains_default
+  compliance:
+    - test_nfr07_runtime_requirements_are_exactly_pinned
+    - test_nfr07_installed_dependency_licenses_are_allowlisted
+    - test_nfr07_sbom_exists_with_required_dependency_fields
+  documentation:
+    - test_nfr05_public_api_docstrings_are_complete
+    - test_nfr05_public_docstrings_include_requirement_tags
+  error_handling:
+    - test_nfr03_tasks_file_survives_mid_write_kill
+    - test_nfr03_breaker_file_survives_mid_write_kill
+    - test_nfr03_cache_file_survives_mid_write_kill
+    - test_nfr03_audit_file_survives_mid_write_kill
+    - test_nfr03_exception_handling_scan_has_no_swallowing
+    - test_nfr03_breaker_recovery_meets_timing_bound
+  integration:
+    - test_nfr10_integration_coverage_reaches_eighty_percent
+    - test_nfr10_integration_suite_drives_cli_scenarios
+  meta:
+    - test_nfr09_full_suite_has_zero_skipped_tests
+    - test_nfr09_every_test_has_an_assertion
+    - test_nfr09_pytest_skip_calls_are_absent
+    - test_nfr09_skip_markers_are_absent
+    - test_nfr09_skipif_markers_are_absent
+    - test_nfr09_xfail_markers_are_absent
+    - test_nfr09_harness_does_not_exclude_tests
+    - test_nfr09_verified_rows_have_passing_test_evidence
+  mutation:
+    - test_nfr08_mutation_testing_feature_is_enabled
+    - test_nfr08_mutation_score_meets_seventy_percent
+    - test_nfr08_mutation_scope_has_execution_budget_rationale
+  performance:
+    - test_nfr01_submit_status_p95_under_50ms
+    - test_nfr01_topological_sort_200_tasks_p95_under_200ms
+  readability:
+    - test_nfr11_maintainability_index_meets_eighty
+    - test_nfr11_function_complexity_is_at_most_ten
+    - test_nfr11_source_files_are_at_most_four_hundred_lines
+    - test_nfr11_source_directories_have_at_most_fifteen_files
+  security:
+    - test_nfr02_forbidden_execution_patterns_absent
+    - test_nfr02_injection_semicolon_rejected
+    - test_nfr02_injection_pipe_rejected
+    - test_nfr02_injection_ampersand_rejected
+    - test_nfr02_injection_dollar_rejected
+    - test_nfr02_injection_greater_than_rejected
+    - test_nfr02_injection_less_than_rejected
+    - test_nfr02_injection_backtick_rejected
+    - test_nfr02_bandit_has_no_high_or_medium_findings
+    - test_nfr02_plugin_allowlist_rejects_path_module
+    - test_nfr04_secret_is_redacted_from_audit_log
+    - test_nfr04_secret_is_redacted_from_task_results
+    - test_nfr04_token_secret_is_redacted
+    - test_nfr04_bearer_secret_is_redacted
+  system:
+    - test_nfr12_verify_system_exits_zero
+    - test_nfr12_verify_system_prints_pass_marker

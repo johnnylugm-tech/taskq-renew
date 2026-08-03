@@ -1,0 +1,27 @@
+{
+  "fr": "ADR.md",
+  "review_status": "APPROVE",
+  "reason": "Read all 742 lines of 02-architecture/adr/ADR.md on disk (identical to the DOC 4 snapshot) and cross-checked every load-bearing claim against SPEC.md, 01-requirements/SRS.md, 02-architecture/SAD.md and harness/templates/ADR.md. Format: the template stub sentinel is absent, the H1 anchor '# Architecture Decision Records' matches DELIVERABLE_ANCHORS, and all 15 ADRs carry exactly the template's Status/Context/Decision/Rationale/Consequences sections (grep -c returns 15 for each) plus the checklist-required 'Alternatives Considered' (also 15). Content verification: runtime claim CPython 3.11.15 confirmed by running .venv/bin/python --version; the 'twelve TASKQ_* env vars' in ADR-003 matches SPEC.md §5.1 rows 294-305 and SRS glossary line 875; ADR-014's eight exception classes are byte-identic",
+  "citations": [
+    "02-architecture/adr/ADR.md:711",
+    "02-architecture/adr/ADR.md:663",
+    "02-architecture/adr/ADR.md:446",
+    "02-architecture/SAD.md:73",
+    "02-architecture/SAD.md:123",
+    "02-architecture/SAD.md:146",
+    "01-requirements/SRS.md:91",
+    "01-requirements/SRS.md:186",
+    "01-requirements/SRS.md:875",
+    "SPEC.md:295",
+    "SPEC.md:390",
+    "SPEC.md:246",
+    "harness/templates/ADR.md:16"
+  ],
+  "docs_embedded": [
+    "ADR.md",
+    "SAD.md",
+    "SRS.md",
+    "SPEC.md"
+  ],
+  "confidence": 0.9
+}

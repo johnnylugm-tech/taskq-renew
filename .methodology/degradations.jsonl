@@ -8,3 +8,9 @@
 {"ts": 1785799926.289322, "component": "agent:developer:3", "what": "wall-clock timeout at 600s", "why": ""}
 {"ts": 1785801562.2489119, "component": "agent:developer:3", "what": "wall-clock timeout at 600s", "why": ""}
 {"ts": 1785801562.302145, "component": "run-fr-step:TDD-GREEN", "what": "task_timeout escalated 600 -> 1200", "why": "FR-06 TDD-GREEN hit its wall-clock budget; re-dispatching at the same budget cannot finish what did not fit"}
+{"ts": 1785805951.400036, "component": "run-fr-step:TDD-GREEN", "what": "max_turns escalated 40 -> 80", "why": "FR-08 TDD-GREEN was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}
+{"ts": 1785806551.4713678, "component": "agent:developer:3", "what": "wall-clock timeout at 600s", "why": ""}
+{"ts": 1785806551.520743, "component": "run-fr-step:TDD-GREEN", "what": "task_timeout escalated 600 -> 1200", "why": "FR-08 TDD-GREEN hit its wall-clock budget; re-dispatching at the same budget cannot finish what did not fit"}
+{"ts": 1785807771.785742, "component": "agent:developer:3", "what": "wall-clock timeout at 600s", "why": ""}
+{"ts": 1785808742.480053, "component": "run-fr-step:COVERAGE-FIX", "what": "max_turns escalated 90 -> 180", "why": "FR-08 COVERAGE-FIX was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}
+{"ts": 1785809946.9708118, "component": "run-fr-step:CODE-FIX", "what": "max_turns escalated 50 -> 100", "why": "FR-08 CODE-FIX was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}

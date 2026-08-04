@@ -187,7 +187,7 @@ def _audit_events_of_kind(events: list, kind: str) -> list:
 # ---------------------------------------------------------------------------
 
 
-# NFR-04 / NFR-09 / NP-08
+# NFR-02 / NFR-09
 def test_fr07_plugins_list_reports_loaded_hooks(
     taskq_home, child_env, monkeypatch
 ):
@@ -247,7 +247,7 @@ def test_fr07_plugins_list_reports_loaded_hooks(
 # ---------------------------------------------------------------------------
 
 
-# NFR-04 / NFR-09 / NP-08
+# NFR-02 / NFR-09
 def test_fr07_plugin_path_form_is_rejected(
     taskq_home, child_env, monkeypatch
 ):
@@ -295,7 +295,7 @@ def test_fr07_plugin_path_form_is_rejected(
 # ---------------------------------------------------------------------------
 
 
-# NFR-04 / NFR-09 / NP-08
+# NFR-02 / NFR-09
 def test_fr07_plugin_error_does_not_abort_task(
     taskq_home, child_env, monkeypatch
 ):
@@ -356,7 +356,7 @@ def test_fr07_plugin_error_does_not_abort_task(
 # ---------------------------------------------------------------------------
 
 
-# NFR-04 / NFR-09 / NP-08
+# NFR-02 / NFR-09
 def test_fr07_plugin_disables_after_three_failures(
     taskq_home, child_env, monkeypatch
 ):

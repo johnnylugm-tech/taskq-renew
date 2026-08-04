@@ -779,7 +779,13 @@ def test_fr05_cli_main_graph_ignores_unparseable_depth_cap(
 # NFR-04 / NFR-09
 def test_fr05_cli_main_plugins_lists_allowlist(taskq_home, monkeypatch):
     """`plugins list` prints the `TASKQ_PLUGINS` allowlist and exits 0.
-    *(SPEC §3 FR-05 line 135; §3 FR-07 line 157)*"""
+    *(SPEC §3 FR-05 line 135; §3 FR-07 line 157)*
+
+    The FR-07 spec refines the listing surface: each plugin entry
+    carries its module name, registered hooks, and load status. The
+    test pins the new surface (`hooks=`, `status=`) so a regression
+    that drops the status column is caught.
+    """
     monkeypatch.setenv("TASKQ_PLUGINS", "json, os")
 
     exit_code, stdout, stderr = _capture_main(["plugins", "list"])
@@ -788,8 +794,14 @@ def test_fr05_cli_main_plugins_lists_allowlist(taskq_home, monkeypatch):
         f"a well-formed allowlist must exit 0; got {exit_code}; "
         f"stderr={stderr!r}"
     )
-    assert stdout.splitlines() == ["json", "os"], (
-        f"plugins list must print each declared module name; got {stdout!r}"
+    for name in ("json", "os"):
+        assert name in stdout, (
+            f"plugins list must print each declared module name "
+            f"{name!r}; got {stdout!r}"
+        )
+    assert "status=" in stdout, (
+        f"plugins list must print the load status per plugin; "
+        f"got {stdout!r}"
     )
     assert "list" not in stdout.splitlines(), (
         f"the `list` verb is not itself a plugin spec; got {stdout!r}"
@@ -799,18 +811,23 @@ def test_fr05_cli_main_plugins_lists_allowlist(taskq_home, monkeypatch):
 # NFR-04 / NFR-09
 def test_fr05_cli_main_plugins_rejects_path_form(taskq_home):
     """A path-form plugin spec is rejected with exit 6 *before* any
-    import. *(SPEC §3 FR-07 line 157; §4 NFR-02 line 200; §7 line 390)*"""
+    import. *(SPEC §3 FR-07 line 157; §4 NFR-02 line 200; §7 line 390)*
+
+    The FR-07 spec locks the rejection template to
+    `rejected module: <name>` (TEST_SPEC §FR-07 row 2 sub-assertion
+    `FR07-path-form-named-in-stderr`); the previous
+    `plugin load failed: <name>: not a module name` template is
+    obsolete.
+    """
     exit_code, stdout, stderr = _capture_main(["plugins", "../evil.py"])
 
     assert exit_code == 6, (
         f"a path-form plugin spec must exit 6; got {exit_code}; "
         f"stderr={stderr!r}"
     )
-    assert "plugin load failed: ../evil.py" in stderr, (
-        f"stderr must name the rejected spec; got {stderr!r}"
-    )
-    assert "not a module name" in stderr, (
-        f"stderr must give the rejection reason; got {stderr!r}"
+    assert "rejected module: ../evil.py" in stderr, (
+        f"stderr must name the rejected spec on the FR-07 template; "
+        f"got {stderr!r}"
     )
     assert stdout == "", (
         f"a rejected spec must not be echoed on stdout; got {stdout!r}"

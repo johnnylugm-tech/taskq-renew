@@ -723,3 +723,176 @@ def test_fr06_in_process_run_all_runs_dependent_after_prereq_done(
         f"topological order: b must finish AFTER a; got "
         f"a={a_finished}, b={b_finished}"
     )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.models.task` — TaskSubmission validation (FR-01 / FR-06)
+# ---------------------------------------------------------------------------
+#
+# The validators on `TaskSubmission` are reached in-process when callers
+# construct a model directly. Coverage tooling cannot observe the
+# subprocess acceptance path's reach into `_validate_command` /
+# `_validate_name`, so we exercise each branch in-process below.
+
+
+# NFR-09
+def test_fr06_task_submission_rejects_empty_command():
+    """`TaskSubmission(command="")` raises — covers the empty/whitespace
+    branch of `_validate_command` (task.py lines 74-75).
+
+    GREEN TODO: SPEC §3 line 80 — non-empty / whitespace-only reject.
+    """
+    from pydantic import ValidationError
+
+    from taskq_plus.models.task import TaskSubmission
+
+    with pytest.raises(ValidationError) as excinfo:
+        TaskSubmission(command="")
+    assert "command is empty" in str(excinfo.value), (
+        f"empty command must raise with the canonical message; got "
+        f"{excinfo.value!r}"
+    )
+
+    # Whitespace-only is the other half of the empty branch.
+    with pytest.raises(ValidationError) as excinfo2:
+        TaskSubmission(command="   \t\n")
+    assert "command is empty" in str(excinfo2.value), (
+        f"whitespace-only command must raise the same way; got "
+        f"{excinfo2.value!r}"
+    )
+
+
+# NFR-09
+def test_fr06_task_submission_rejects_command_over_length_cap():
+    """`TaskSubmission(command="x" * 1001)` raises — covers the length-cap
+    branch of `_validate_command` (task.py lines 77-80).
+
+    GREEN TODO: SPEC §3 line 81 — length cap is strict-greater-than
+    1000 (1000 is accepted, 1001 is rejected).
+    """
+    from pydantic import ValidationError
+
+    from taskq_plus.models.task import TaskSubmission
+
+    at_cap = "x" * 1000
+    over_cap = "x" * 1001
+
+    # 1000 must be accepted.
+    submission = TaskSubmission(command=at_cap)
+    assert len(submission.command) == 1000, (
+        f"command at the cap (1000) must be accepted; got "
+        f"len={len(submission.command)}"
+    )
+
+    # 1001 must be rejected with the canonical message.
+    with pytest.raises(ValidationError) as excinfo:
+        TaskSubmission(command=over_cap)
+    msg = str(excinfo.value)
+    assert "1001" in msg and "1000" in msg, (
+        f"over-cap rejection must mention both the actual and the cap "
+        f"length; got {msg!r}"
+    )
+
+
+# NFR-09
+def test_fr06_task_submission_rejects_command_with_injection_character():
+    """`TaskSubmission(command="echo hi; rm x")` raises — covers the
+    injection-blacklist branch of `_validate_command`
+    (task.py lines 82-86).
+
+    GREEN TODO: SPEC §3 line 82 — seven-character injection blacklist
+    (`;` `|` `&` `$` `>` `<` `` ` ``).
+    """
+    from pydantic import ValidationError
+
+    from taskq_plus.models.task import TaskSubmission
+
+    for ch in (";", "|", "&", "$", ">", "<", "`"):
+        with pytest.raises(ValidationError) as excinfo:
+            TaskSubmission(command=f"echo hi{ch}rm x")
+        msg = str(excinfo.value)
+        assert "injection" in msg, (
+            f"injection-character {ch!r} must raise with the canonical "
+            f"message; got {msg!r}"
+        )
+        assert ch in msg, (
+            f"injection-character {ch!r} must be named in the error "
+            f"message; got {msg!r}"
+        )
+
+
+# NFR-09
+def test_fr06_task_submission_name_validator_returns_none_for_none_input():
+    """`TaskSubmission(name=None)` keeps `name=None` — covers the
+    `value is None` branch of `_validate_name` (task.py lines 92-94).
+    """
+    from taskq_plus.models.task import TaskSubmission
+
+    submission = TaskSubmission(command="echo hi", name=None)
+    assert submission.name is None, (
+        f"TaskSubmission(name=None) must keep name=None; got "
+        f"{submission.name!r}"
+    )
+
+
+# NFR-09
+def test_fr06_task_submission_name_validator_strips_and_drops_empty():
+    """`TaskSubmission(name="  ")` drops to `None`, while a real name
+    is stripped of surrounding whitespace — covers the non-None branch
+    of `_validate_name` (task.py line 95).
+    """
+    from taskq_plus.models.task import TaskSubmission
+
+    # Whitespace-only normalises to None.
+    blank = TaskSubmission(command="echo hi", name="   ")
+    assert blank.name is None, (
+        f"whitespace-only name must normalise to None; got "
+        f"{blank.name!r}"
+    )
+
+    # A real name is stripped of leading/trailing whitespace.
+    padded = TaskSubmission(command="echo hi", name="  my-task  ")
+    assert padded.name == "my-task", (
+        f"name must be stripped of surrounding whitespace; got "
+        f"{padded.name!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.dag` — Mapping dispatch in helpers
+# ---------------------------------------------------------------------------
+#
+# `dependency_edges` accepts both `Task` pydantic models (attribute
+# access) and `tasks.json` records (mapping access). The mapping branch
+# lives in `_task_id` (line 51) and `_task_deps` (line 62); existing
+# in-process tests only exercise the attribute branch.
+
+
+# NFR-09
+def test_fr06_dag_dependency_edges_accepts_mapping_shaped_tasks():
+    """`dependency_edges` accepts raw `Mapping`-shaped tasks
+    (e.g. raw `tasks.json` records) — covers the Mapping branches of
+    `_task_id` (line 51) and `_task_deps` (line 62).
+    """
+    from taskq_plus.service.dag import dependency_edges
+
+    records = [
+        {"id": "alpha", "depends_on": []},
+        {"id": "beta", "depends_on": ["alpha"]},
+        {"id": "gamma", "depends_on": ["alpha", "beta"]},
+        # Dangling dependency `delta` is dropped (SPEC: `submit`
+        # rejects unknown --after ids at write time, so a dangling edge
+        # is a recovery case, not a validation case).
+        {"id": "delta", "depends_on": ["missing"]},
+    ]
+    edges = dependency_edges(records)
+
+    assert edges == {
+        "alpha": [],
+        "beta": ["alpha"],
+        "gamma": ["alpha", "beta"],
+        "delta": [],
+    }, (
+        f"dependency_edges must map every id to its in-set prerequisites "
+        f"and drop dangling edges; got {edges!r}"
+    )

@@ -64,6 +64,7 @@ from taskq_plus.service.dag import (
     topo_sort as _kahn_order,
 )
 from taskq_plus.service.executor import run_task
+from taskq_plus.service.plugins import PluginRegistry, PLUGIN_NAME_RE
 from taskq_plus.storage.breaker_store import make_breaker_store
 from taskq_plus.storage.task_store import get_store, reset_store_cache
 
@@ -242,11 +243,48 @@ def _persist_result(store, task: Task, result) -> None:
     )
 
 
-def _execute_and_persist(task: Task, *, store) -> str:
-    """[FR-02] Execute `task`, persist its result, and return its status."""
+def _execute_and_persist(
+    task: Task,
+    *,
+    store,
+    plugin_registry: Optional[PluginRegistry] = None,
+) -> str:
+    """[FR-02/FR-07] Execute `task`, persist its result, return its status.
+
+    When a `plugin_registry` is supplied, the FR-07 `pre_run` /
+    `post_run` hooks are invoked around the executor dispatch. A
+    hook that raises is logged as a `plugin_error` audit event
+    by the registry and the executor still runs — the plugin
+    surface never aborts the task (SPEC §3 FR-07 line 159).
+    """
+    if plugin_registry is not None:
+        plugin_registry.run_pre(
+            task, task_id=task.id, correlation_id=task.id
+        )
     result = run_task(task, timeout=_timeout_budget())
     _persist_result(store, task, result)
+    if plugin_registry is not None:
+        plugin_registry.run_post(
+            task,
+            result,
+            task_id=task.id,
+            correlation_id=task.id,
+        )
     return result.status
+
+
+def _build_plugin_registry() -> PluginRegistry:
+    """[FR-07] Construct and load the plugins for the current run.
+
+    Returns a `PluginRegistry` whose `load()` has parsed
+    `TASKQ_PLUGINS` and attempted every import. The registry is
+    shared across all tasks in one `run` invocation so the
+    consecutive-failure counter survives between task dispatches
+    (the 3-failure auto-disable is per-run, not per-task).
+    """
+    registry = PluginRegistry()
+    registry.load()
+    return registry
 
 
 def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
@@ -380,7 +418,7 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     store = get_store(use_disk=use_disk)
 
     if args.run_all:
-        return _run_all(store)
+        return _run_all(store, _build_plugin_registry())
 
     # [FR-03] Breaker gate: reject the run BEFORE any task lookup or
     # subprocess dispatch when the breaker is OPEN. The state is read
@@ -415,7 +453,9 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         bstore.save(breaker)
         return 0
 
-    status = _execute_and_persist(task, store=store)
+    status = _execute_and_persist(
+        task, store=store, plugin_registry=_build_plugin_registry()
+    )
 
     if status == "done":
         updated = store.find(task.id)
@@ -448,7 +488,7 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     return 0
 
 
-def _run_all(store) -> int:
+def _run_all(store, plugin_registry: Optional[PluginRegistry] = None) -> int:
     """[FR-02/FR-06] Execute every pending task in topological order.
 
     Walks the dependency graph layer by layer — a layer is the set of
@@ -537,7 +577,9 @@ def _run_all(store) -> int:
             continue
 
         def _dispatch(task: Task) -> str:
-            return _execute_and_persist(task, store=store)
+            return _execute_and_persist(
+                task, store=store, plugin_registry=plugin_registry
+            )
 
         max_workers = max(1, min(_max_workers(), len(runnable)))
         if max_workers == 1:
@@ -820,8 +862,15 @@ def plugins(argv: Optional[List[str]] = None) -> int:
     arbitrary-code-execution entry point (SPEC §3 FR-07 lines 155-157,
     NFR-02).
 
+    For each well-formed spec the loader tries to import the module
+    and reports the registered hooks (`pre_run`, `post_run`) plus the
+    load status (`loaded`, `failed`, `not_loaded`). The output is
+    one record per plugin, space-separated.
+
     Returns:
-        0 — every declared spec is a well-formed module name.
+        0 — every declared spec is a well-formed module name (its
+            import may still have failed, which is reported as
+            `status=failed`).
         6 — a spec is not a module name (path / URL form).
 
     Citations:
@@ -829,10 +878,10 @@ def plugins(argv: Optional[List[str]] = None) -> int:
         SPEC.md §3 FR-05 line 140 — `6` plugin 載入失敗.
         SPEC.md §3 FR-07 line 157 — 模組名必須匹配
             `^[A-Za-z_][A-Za-z0-9_.]*$`,不符 → 拒絕載入, exit 6.
+        SPEC.md §3 FR-07 line 160 — `plugins list` 輸出每個 plugin
+            的模組名、註冊的 hook、載入狀態.
         SPEC.md §4 NFR-02 line 200 — 不得接受檔案路徑或 URL.
-        SPEC.md §7 line 390 — stderr `plugin load failed: <name>: <reason>`.
-        SPEC.md §8 line 414 — `TASKQ_PLUGINS="../evil.py" ... plugins list`
-            → exit 6 (路徑形式被拒).
+        SPEC.md §7 line 390 — path form rejected, exit 6.
     """
     parser = argparse.ArgumentParser(
         prog="taskq plugins",
@@ -854,13 +903,23 @@ def plugins(argv: Optional[List[str]] = None) -> int:
             if spec.strip()
         ]
 
+    # Phase 1 — regex whitelist. Any spec that fails the regex is a
+    # path / URL form and is rejected with exit 6 *before* any
+    # import is attempted (FR-07 + NFR-02 security rule).
     for spec in specs:
         if not PLUGIN_NAME_RE.match(spec):
-            print(
-                f"plugin load failed: {spec}: not a module name",
-                file=sys.stderr,
-            )
+            print(f"rejected module: {spec}", file=sys.stderr)
             return 6
-    for spec in specs:
-        print(spec)
+
+    # Phase 2 — load every well-formed spec via the registry and
+    # print one record per plugin: module name, registered hooks,
+    # and load status.
+    registry = PluginRegistry(plugin_env=",".join(specs))
+    registry.load()
+    for record in registry.records:
+        hooks_str = ",".join(record.hooks) if record.hooks else "-"
+        line = f"{record.name}  hooks={hooks_str}  status={record.status}"
+        if record.error and record.status != "loaded":
+            line += f"  error={record.error}"
+        print(line)
     return 0

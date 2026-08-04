@@ -1,0 +1,185 @@
+"""[FR-08] Structured audit log (JSON Lines, append-only).
+
+The audit log is a flat JSONL file at `$TASKQ_AUDIT_LOG` (default
+`$TASKQ_HOME/audit.jsonl`). One event per line; the file is opened
+with `O_APPEND` and `fsync`'d on every write so a mid-write crash
+leaves the prior lines intact and a new line starts on the next
+byte boundary (NFR-03 atomicity for `audit.jsonl`).
+
+Every record carries the canonical per-record fields:
+
+* `ts` — ISO-8601 UTC timestamp.
+* `event` — one of the recognised event kinds
+  (`submit` / `run_start` / `run_end` / `retry` / `breaker_open` /
+  `breaker_close` / `cache_hit` / `blocked` / `plugin_error`).
+* `task_id` — the task the event is about (or `None` for events
+  not tied to one task).
+* `correlation_id` — per-CLI-invocation identifier; every event
+  triggered by a single `python -m taskq_plus` call shares the
+  same value.
+* `detail` — free-form payload; NFR-04 redaction is applied
+  to this field **before** the line is written to disk.
+
+Citations:
+    SPEC.md §3 FR-08 lines 162-180 — audit log path / per-record
+        fields / `correlation_id` / event kinds / redaction.
+    SPEC.md §5.2 line 314 — `$TASKQ_HOME/audit.jsonl`.
+    SPEC.md §4 NFR-03 — append + fsync atomicity for `audit.jsonl`.
+    SPEC.md §4 NFR-04 — redaction before write to disk.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import threading
+import uuid
+from datetime import datetime, timezone
+from typing import Optional
+
+
+#: [FR-08] Default audit log basename when `TASKQ_AUDIT_LOG` is unset
+#: (SPEC §3 FR-08 line 162).
+DEFAULT_AUDIT_LOG_BASENAME: str = "audit.jsonl"
+
+#: [FR-08] Recognised event kinds. The audit surface is append-only;
+#: adding a new kind here is a backward-compatible change.
+VALID_EVENT_KINDS: frozenset[str] = frozenset({
+    "submit",
+    "run_start",
+    "run_end",
+    "retry",
+    "breaker_open",
+    "breaker_close",
+    "cache_hit",
+    "blocked",
+    "plugin_error",
+})
+
+#: [FR-08] NFR-04 redaction regex (verbatim SPEC §4 NFR-04 line 207).
+#: A line matching this alternation is replaced with `[REDACTED]`
+#: before the record is written to disk.
+_REDACTION_RE: re.Pattern = re.compile(
+    r"sk-[A-Za-z0-9_-]{8,}|token=\S+|Bearer\s+\S+"
+)
+
+#: [FR-08] Process-wide lock guarding the audit append so concurrent
+#: writes from `run --all` workers cannot interleave JSONL lines.
+_AUDIT_LOCK = threading.Lock()
+
+
+def _audit_path() -> str:
+    """[FR-08] Resolve the audit log path.
+
+    Honours `TASKQ_AUDIT_LOG` (absolute path) and falls back to
+    `$TASKQ_HOME/audit.jsonl` (SPEC §3 FR-08 line 162).
+    """
+    override = os.environ.get("TASKQ_AUDIT_LOG")
+    if override:
+        return override
+    home = os.environ.get("TASKQ_HOME", "~/.taskq")
+    home_path = os.path.expanduser(home)
+    return os.path.join(home_path, DEFAULT_AUDIT_LOG_BASENAME)
+
+
+def new_correlation_id() -> str:
+    """[FR-08] Mint a new `correlation_id` for one CLI invocation.
+
+    The id is a uuid4 hex string — long enough to be unique across
+    processes and short enough to be human-greppable. Every audit
+    event triggered by a single `python -m taskq_plus` call MUST
+    share the value returned from one `new_correlation_id()` call
+    (SPEC §3 FR-08 line 166).
+    """
+    return uuid.uuid4().hex
+
+
+def _utcnow_iso() -> str:
+    """[FR-08] ISO-8601 UTC timestamp for the `ts` field."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _redact(value):
+    """[FR-08] Apply NFR-04 redaction to a single value.
+
+    Strings are scanned for the redaction regex; the whole match
+    is replaced with `[REDACTED]`. Dicts / lists are recursed into.
+    Other types pass through unchanged. The redaction is applied
+    BEFORE the record is written to disk (SPEC §3 FR-08 line 179,
+    NFR-04).
+    """
+    if isinstance(value, str):
+        return _REDACTION_RE.sub("[REDACTED]", value)
+    if isinstance(value, dict):
+        return {k: _redact(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+    return value
+
+
+def append_event(
+    event: str,
+    *,
+    task_id: Optional[str] = None,
+    correlation_id: Optional[str] = None,
+    detail: Optional[dict] = None,
+) -> dict:
+    """[FR-08] Append one JSONL event to the audit log.
+
+    The record is redacted (NFR-04) before serialisation. The
+    `ts`, `event`, `task_id`, `correlation_id`, and `detail`
+    fields are the canonical per-record shape (SPEC §3 FR-08
+    lines 164-168).
+
+    Returns:
+        The redacted record (useful for in-process assertions and
+        for the test harness; the on-disk line is the same JSON).
+    """
+    record = {
+        "ts": _utcnow_iso(),
+        "event": event,
+        "task_id": task_id,
+        "correlation_id": correlation_id,
+        "detail": _redact(detail) if detail is not None else {},
+    }
+    payload = json.dumps(record, ensure_ascii=False) + "\n"
+    path = _audit_path()
+    with _AUDIT_LOCK:
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        fd = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_APPEND,
+            0o644,
+        )
+        try:
+            os.write(fd, payload.encode("utf-8"))
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    return record
+
+
+def read_events(path: Optional[str] = None) -> list:
+    """[FR-08] Read the audit log back as a list of decoded events.
+
+    One JSON object per non-empty line; lines that fail to parse
+    are skipped so a partially corrupted file does not surface as
+    an error from the read path. Used by the test harness to
+    verify the on-disk shape after a `submit` / `run` flow.
+    """
+    target = path if path is not None else _audit_path()
+    if not os.path.exists(target):
+        return []
+    events: list = []
+    with open(target, "r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return events

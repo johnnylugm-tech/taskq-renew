@@ -111,6 +111,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("clear", help="Remove every data file in $TASKQ_HOME.")
 
+    # [FR-08] `export --format <fmt>` — three-format task list export.
+    export_p = sub.add_parser(
+        "export", help="Export the task list in json/csv/md form."
+    )
+    export_p.add_argument(
+        "--format", required=True, dest="fmt",
+        choices=("json", "csv", "md"),
+        help="Output format.",
+    )
+
     sub.add_parser("graph", help="Print the task dependency graph.")
 
     plugins_p = sub.add_parser("plugins", help="List the plugin allowlist.")
@@ -163,6 +173,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.command == "clear":
         return commands.clear([])
+
+    if args.command == "export":
+        return commands.export(["--format", args.fmt], use_disk=True)
 
     if args.command == "graph":
         return commands.graph([], use_disk=True)

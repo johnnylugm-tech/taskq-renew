@@ -54,6 +54,8 @@ from pydantic import ValidationError
 
 from taskq_plus.config import taskq_home
 from taskq_plus.models.task import Task, TaskSubmission
+from taskq_plus.observability import audit as _audit
+from taskq_plus.observability import export as _export
 from taskq_plus.service.breaker import STATE_OPEN
 from taskq_plus.service.cache import cache_ttl, lookup as cache_lookup, record as cache_record
 from taskq_plus.service.dag import (
@@ -371,6 +373,21 @@ def submit(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
 
     stored = store.add(task)
 
+    # [FR-08] Emit the `submit` audit event for this CLI invocation.
+    # The `correlation_id` is minted once per `submit` invocation and
+    # carried on every audit event triggered by that invocation
+    # (SPEC §3 FR-08 line 166). The `_audit_log_correlation_id` is
+    # threaded through the rest of the FR-08 events so `run` and
+    # `export` can share it when the same process emits multiple
+    # events; `submit` is the one that always emits first.
+    correlation_id = _audit.new_correlation_id()
+    _audit.append_event(
+        "submit",
+        task_id=stored.id,
+        correlation_id=correlation_id,
+        detail={"command": stored.command, "name": stored.name},
+    )
+
     if args.as_json:
         print(json.dumps({"id": stored.id, "status": stored.status}))
     else:
@@ -427,6 +444,15 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     breaker = bstore.load()
     breaker.check()  # OPEN -> HALF_OPEN if cooldown elapsed (no-op on CLOSED)
     if breaker.state == STATE_OPEN:
+        # [FR-08] Audit the breaker-open rejection as a single
+        # `breaker_open` event so the operator can correlate it
+        # with the CLI invocation that triggered it.
+        _audit.append_event(
+            "breaker_open",
+            task_id=None,
+            correlation_id=_audit.new_correlation_id(),
+            detail={"reason": "breaker open"},
+        )
         print("breaker open", file=sys.stderr)
         return 3
 
@@ -434,6 +460,17 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     if task is None:
         print(f"run: task {args.task_id!r} not found", file=sys.stderr)
         return 2
+
+    # [FR-08] Mint one `correlation_id` for this `run` invocation;
+    # both the `run_start` and `run_end` events share it so the
+    # AC-08-1 invariant (one correlation_id per CLI invocation) holds.
+    correlation_id = _audit.new_correlation_id()
+    _audit.append_event(
+        "run_start",
+        task_id=task.id,
+        correlation_id=correlation_id,
+        detail={"command": task.command},
+    )
 
     # [FR-04] A cache hit updates the task directly and never invokes the
     # executor. CacheStore handles corrupt files as ordinary misses.
@@ -450,10 +487,23 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         store.update(task.id, lambda current: current.model_copy(update=cached_fields))
         breaker.record_success()
         bstore.save(breaker)
+        _audit.append_event(
+            "run_end",
+            task_id=task.id,
+            correlation_id=correlation_id,
+            detail={"status": "done", "cached": True},
+        )
         return 0
 
     status = _execute_and_persist(
         task, store=store, plugin_registry=_build_plugin_registry()
+    )
+
+    _audit.append_event(
+        "run_end",
+        task_id=task.id,
+        correlation_id=correlation_id,
+        detail={"status": status},
     )
 
     if status == "done":
@@ -766,6 +816,65 @@ def clear(argv: Optional[List[str]] = None) -> int:
     for filename in DATA_FILENAMES:
         (home / filename).unlink(missing_ok=True)
     reset_store_cache()
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# [FR-08] Three-format task export
+# ---------------------------------------------------------------------------
+
+
+def _build_export_parser() -> argparse.ArgumentParser:
+    """[FR-08] Build the `export` argument parser.
+
+    `--format` is required so the dispatcher exits 2 on a missing
+    value rather than guessing a default that could silently mask a
+    caller bug.
+    """
+    parser = argparse.ArgumentParser(
+        prog="taskq export",
+        description="Export the task list in json/csv/md form.",
+    )
+    parser.add_argument(
+        "--format",
+        required=True,
+        choices=sorted(_export.VALID_FORMATS),
+        help="Output format: json, csv, or md.",
+    )
+    return parser
+
+
+def export(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
+    """[FR-08] Export the task list in the requested format; return an exit code.
+
+    The three renderers (`json` / `csv` / `md`) all consume the same
+    record list, so the field set and the row count are guaranteed
+    to agree across formats (SPEC §3 FR-08 line 187; the test
+    `test_fr08_exports_agree_and_escape_csv_fields[formats_agree]`
+    asserts this invariant).
+
+    Returns:
+        0 — records rendered to stdout.
+        2 — unknown / unsupported format (argparse rejects an
+            out-of-set value before the handler runs).
+
+    Citations:
+        SPEC.md §3 FR-08 lines 181-191 — three-format export.
+        SPEC.md §8 row #14 — acceptance row for `export --format
+            json|csv|md`.
+    """
+    parser = _build_export_parser()
+    args = _parse_args(parser, argv)
+
+    store = get_store(use_disk=use_disk)
+    tasks = store.all()
+    records = _export.to_records(tasks)
+
+    output = _export.render(records, args.format)
+    if output:
+        sys.stdout.write(output)
+        if not output.endswith("\n"):
+            sys.stdout.write("\n")
     return 0
 
 

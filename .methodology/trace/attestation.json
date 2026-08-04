@@ -1,7 +1,7 @@
 {
   "schema": "harness/traceability/attestation/v1",
-  "git_sha": "9ec6ccd1612ab0d307381c52a41c25e54c21fe05",
-  "content_sha256": "3cbdc193ffab8db347b4ba5450e3c2589e67a8afd4f895f05e12eb870b4a064f",
+  "git_sha": "6dacde7474e5ad9c679f6f24f0e2ee964b3cc2c7",
+  "content_sha256": "01411ef0a87029b84753876d78ddb2c2b0f7046d1d22ae6a15c4e80b18ab3243",
   "tool": "scripts/build_trace_attestation.py",
   "overlay_used": null,
   "overlay_errors": [],
@@ -11,40 +11,20 @@
     "completeness": {
       "total_requirements": 8,
       "srs_coverage": "100.0%",
-      "code_coverage": "50.0%",
-      "test_coverage": "50.0%",
-      "verification_rate": "50.0%",
-      "total_links": 32,
+      "code_coverage": "100.0%",
+      "test_coverage": "100.0%",
+      "verification_rate": "100.0%",
+      "total_links": 79,
       "missing_mappings": {
         "fr_without_srs": [],
-        "fr_without_code": [
-          "FR-05",
-          "FR-06",
-          "FR-07",
-          "FR-08"
-        ],
-        "fr_without_test": [
-          "FR-05",
-          "FR-06",
-          "FR-07",
-          "FR-08"
-        ]
+        "fr_without_code": [],
+        "fr_without_test": []
       }
     },
     "missing": {
       "fr_without_srs": [],
-      "fr_without_code": [
-        "FR-05",
-        "FR-06",
-        "FR-07",
-        "FR-08"
-      ],
-      "fr_without_test": [
-        "FR-05",
-        "FR-06",
-        "FR-07",
-        "FR-08"
-      ]
+      "fr_without_code": [],
+      "fr_without_test": []
     },
     "requirements": {
       "FR-01": {
@@ -52,6 +32,14 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/__init__.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/__main__.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/__init__.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/config.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/models/__init__.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/models/task.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/storage/task_store.py",
           "03-development/src/taskq_plus/__init__.py",
           "03-development/src/taskq_plus/__main__.py",
           "03-development/src/taskq_plus/cli/__init__.py",
@@ -72,6 +60,11 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/models/errors.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/__init__.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/executor.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/storage/task_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/models/errors.py",
           "03-development/src/taskq_plus/service/__init__.py",
@@ -89,6 +82,10 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/breaker.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/executor.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/storage/breaker_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/breaker.py",
           "03-development/src/taskq_plus/service/executor.py",
@@ -105,6 +102,9 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/cache.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/storage/cache_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/cache.py",
           "03-development/src/taskq_plus/storage/cache_store.py"
@@ -117,37 +117,72 @@
       },
       "FR-05": {
         "fr_id": "FR-05",
-        "status": "pending",
+        "status": "verified",
         "srs_section": "SAD.md",
-        "code_files": [],
-        "test_files": [],
+        "code_files": [
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/main.py",
+          "03-development/src/taskq_plus/cli/commands.py",
+          "03-development/src/taskq_plus/cli/main.py"
+        ],
+        "test_files": [
+          "03-development/tests/test_fr05.py"
+        ],
         "sad_module": "—",
         "priority": "HIGH"
       },
       "FR-06": {
         "fr_id": "FR-06",
-        "status": "pending",
+        "status": "verified",
         "srs_section": "SAD.md",
-        "code_files": [],
-        "test_files": [],
+        "code_files": [
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/dag.py",
+          "03-development/src/taskq_plus/cli/commands.py",
+          "03-development/src/taskq_plus/service/dag.py"
+        ],
+        "test_files": [
+          "03-development/tests/test_fr06.py"
+        ],
         "sad_module": "—",
         "priority": "HIGH"
       },
       "FR-07": {
         "fr_id": "FR-07",
-        "status": "pending",
+        "status": "verified",
         "srs_section": "SAD.md",
-        "code_files": [],
-        "test_files": [],
+        "code_files": [
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/plugins.py",
+          "03-development/src/taskq_plus/cli/commands.py",
+          "03-development/src/taskq_plus/service/plugins.py"
+        ],
+        "test_files": [
+          "03-development/tests/test_fr07.py"
+        ],
         "sad_module": "—",
         "priority": "HIGH"
       },
       "FR-08": {
         "fr_id": "FR-08",
-        "status": "pending",
+        "status": "verified",
         "srs_section": "SAD.md",
-        "code_files": [],
-        "test_files": [],
+        "code_files": [
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/main.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/observability/__init__.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/observability/audit.py",
+          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/observability/export.py",
+          "03-development/src/taskq_plus/cli/commands.py",
+          "03-development/src/taskq_plus/cli/main.py",
+          "03-development/src/taskq_plus/observability/__init__.py",
+          "03-development/src/taskq_plus/observability/audit.py",
+          "03-development/src/taskq_plus/observability/export.py",
+          "03-development/tests/test_fr08.py"
+        ],
+        "test_files": [
+          "03-development/tests/test_fr08.py"
+        ],
         "sad_module": "—",
         "priority": "HIGH"
       }

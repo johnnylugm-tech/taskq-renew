@@ -508,14 +508,32 @@ _test_fr08_exports_agree_and_escape_csv_fields_params = [
 
 # Inject the parametrize decorator by overwriting the wrapper. This
 # keeps the canonical function name in one place while letting pytest
-# enumerate the two sub-cases.
+# enumerate the two sub-cases. The wrapping function name MUST start
+# with `test_` so the spec-coverage-check (D4) finds the canonical
+# TEST_SPEC.md test_fn via its `^\s*def\s+test_\w+` regex.
+def test_fr08_exports_agree_and_escape_csv_fields(
+    taskq_home, child_env, scenario
+):
+    """[FR-08] AC-08-2 — parametrized over formats_agree + csv_escaping.
+
+    The implementation is delegated to the helper above so the
+    two-scenario dispatch table lives in one place; the canonical
+    `def test_...` name is what the spec-coverage-check finds.
+    """
+    _fr08_exports_agree_and_escape_csv_fields(
+        taskq_home, child_env, scenario
+    )
+
+
+# Apply the parametrize decorator to the canonical test function so
+# pytest enumerates the two sub-cases (`[formats_agree]`,
+# `[csv_escaping]`) — those ids are the on-the-wire labels the
+# test_inventory expects.
 test_fr08_exports_agree_and_escape_csv_fields = pytest.mark.parametrize(
     "scenario",
     [p.values[0] for p in _test_fr08_exports_agree_and_escape_csv_fields_params],
     ids=[p.id for p in _test_fr08_exports_agree_and_escape_csv_fields_params],
-)(
-    _fr08_exports_agree_and_escape_csv_fields
-)
+)(test_fr08_exports_agree_and_escape_csv_fields)
 
 
 # ---------------------------------------------------------------------------

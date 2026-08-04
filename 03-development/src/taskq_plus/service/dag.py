@@ -35,7 +35,32 @@ Citations:
 """
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Mapping, Sequence, Set, Tuple
+from collections import deque
+from typing import Any, Dict, Iterable, List, Mapping, Sequence, Set, Tuple
+
+
+def _task_id(task: Any) -> str:
+    """Return the id of a `Task` model or task-shaped mapping.
+
+    `tasks.json` records reach this helper as a `Mapping`; in-memory
+    `Task` pydantic models reach it as a plain object — both expose
+    `id` and `depends_on`, so the dispatch keeps the helper
+    interchangeable across the disk and the in-process store.
+    """
+    if isinstance(task, Mapping):
+        return str(task["id"])
+    return str(getattr(task, "id"))
+
+
+def _task_deps(task: Any) -> List[str]:
+    """Return the dependency list of a `Task` model or task-shaped mapping.
+
+    `None` and an absent `depends_on` both normalise to `[]` so the
+    helper never has to special-case partially-populated records.
+    """
+    if isinstance(task, Mapping):
+        return list(task.get("depends_on") or [])
+    return list(getattr(task, "depends_on", None) or [])
 
 
 def dependency_edges(
@@ -62,24 +87,11 @@ def dependency_edges(
         A `dict` mapping every task id to a list of its prerequisite
         ids (only ids that appear as keys in the result are kept).
     """
-    def _task_id(task: object) -> str:
-        if isinstance(task, Mapping):
-            return str(task["id"])
-        return str(getattr(task, "id"))
-
-    def _task_deps(task: object) -> Sequence[str]:
-        if isinstance(task, Mapping):
-            raw = task.get("depends_on", []) or []
-        else:
-            raw = getattr(task, "depends_on", None) or []
-        return list(raw)
-
     known: Set[str] = {_task_id(t) for t in tasks}
-    edges: Dict[str, List[str]] = {}
-    for task in tasks:
-        tid = _task_id(task)
-        edges[tid] = [d for d in _task_deps(task) if d in known]
-    return edges
+    return {
+        _task_id(task): [d for d in _task_deps(task) if d in known]
+        for task in tasks
+    }
 
 
 def topo_sort(
@@ -116,10 +128,15 @@ def topo_sort(
     # tasks that share the same in-degree (e.g. siblings in a
     # diamond). Determinism matters for the acceptance tests that
     # compare a.finished_at < b.finished_at under parallel dispatch.
-    ready: List[str] = sorted(node for node, count in indegree.items() if count == 0)
+    # The sort runs once up front, so a `deque` gives O(1) popleft
+    # for the rest of the sweep — `list.pop(0)` would be O(n) per
+    # step and turn the whole loop into O(n²).
+    ready: deque[str] = deque(sorted(
+        node for node, count in indegree.items() if count == 0
+    ))
     order: List[str] = []
     while ready:
-        node = ready.pop(0)
+        node = ready.popleft()
         order.append(node)
         for dependent in dependents[node]:
             indegree[dependent] -= 1

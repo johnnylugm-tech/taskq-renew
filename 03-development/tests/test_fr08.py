@@ -1903,3 +1903,71 @@ def test_fr08_inprocess_plugin_successful_hook_resets_counter(
     assert not record.disabled, (
         "a single success must NOT auto-disable a plugin"
     )
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_format_validation_error_empty_errors():
+    """[FR-08] Empty validation error lists use the fallback message."""
+    from taskq_plus.cli import commands
+
+    class _EmptyValidationError:
+        def errors(self):
+            return []
+
+    assert commands._format_validation_error(_EmptyValidationError()) == (
+        "validation failed"
+    )
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_rejects_excessive_dependency_depth(monkeypatch):
+    """[FR-08] A dependency chain beyond the configured cap exits 5."""
+    from taskq_plus.cli import commands
+
+    with _capture_io() as (out_buf, _):
+        assert commands.submit(["echo root"], use_disk=False) == 0
+    root_id = out_buf.getvalue().strip()
+    monkeypatch.setattr(commands, "_max_dag_depth", lambda: 0)
+    with _capture_io() as (_, err_buf):
+        rc = commands.submit(["echo child", "--after", root_id], use_disk=False)
+    assert rc == 5
+    assert "dependency chain too deep" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_all_skips_terminal_tasks_and_records_success(taskq_home, monkeypatch):
+    """[FR-08] `run --all` skips terminal rows and records successful work."""
+    from taskq_plus.cli.commands import submit, run
+    from taskq_plus.storage.task_store import get_store
+
+    with _capture_io() as (out_buf, _):
+        assert submit(["echo done"], use_disk=True) == 0
+    done_id = out_buf.getvalue().strip()
+    store = get_store(use_disk=True)
+    store.update(done_id, lambda task: task.model_copy(update={"status": "done"}))
+    with _capture_io() as (out_buf, _):
+        assert submit(["echo pending"], use_disk=True) == 0
+    pending_id = out_buf.getvalue().strip()
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "1")
+    with _capture_io():
+        assert run(["--all"], use_disk=True) == 0
+    assert store.find(done_id).status == "done"
+    assert store.find(pending_id).status == "done"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_all_threaded_records_failed_tasks(taskq_home, monkeypatch):
+    """[FR-08] Threaded `run --all` records nonzero task outcomes."""
+    from taskq_plus.cli.commands import submit, run
+    from taskq_plus.storage.task_store import get_store
+
+    ids = []
+    for _ in range(2):
+        with _capture_io() as (out_buf, _):
+            assert submit(["false"], use_disk=True) == 0
+        ids.append(out_buf.getvalue().strip())
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "2")
+    with _capture_io():
+        assert run(["--all"], use_disk=True) == 0
+    store = get_store(use_disk=True)
+    assert all(store.find(task_id).status == "failed" for task_id in ids)

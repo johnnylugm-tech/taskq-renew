@@ -45,7 +45,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -64,7 +63,11 @@ from taskq_plus.service.dag import (
     topo_sort as _kahn_order,
 )
 from taskq_plus.service.executor import run_task
-from taskq_plus.service.plugins import PluginRegistry, PLUGIN_NAME_RE
+from taskq_plus.service.plugins import (
+    PLUGIN_NAME_RE,
+    PluginRegistry,
+    parse_plugin_specs,
+)
 from taskq_plus.storage.breaker_store import make_breaker_store
 from taskq_plus.storage.task_store import get_store, reset_store_cache
 
@@ -84,10 +87,6 @@ DATA_FILENAMES: Tuple[str, ...] = (
     "cache.json",
     "audit.jsonl",
 )
-
-#: [FR-05/FR-07] Plugin module-name whitelist. A spec that does not match
-#: is a path or URL form and must be rejected (SPEC §3 FR-07 line 157).
-PLUGIN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 #: [FR-05/FR-06] Default dependency-chain depth cap when
 #: `TASKQ_MAX_DAG_DEPTH` is unset (SPEC §5.1 line 302).
@@ -897,11 +896,7 @@ def plugins(argv: Optional[List[str]] = None) -> int:
 
     specs = [spec for spec in args.specs if spec != "list"]
     if not specs:
-        specs = [
-            spec.strip()
-            for spec in os.environ.get("TASKQ_PLUGINS", "").split(",")
-            if spec.strip()
-        ]
+        specs = parse_plugin_specs(os.environ.get("TASKQ_PLUGINS", ""))
 
     # Phase 1 — regex whitelist. Any spec that fails the regex is a
     # path / URL form and is rejected with exit 6 *before* any

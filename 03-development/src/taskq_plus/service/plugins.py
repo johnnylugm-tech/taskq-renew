@@ -47,7 +47,7 @@ import os
 import re
 import threading
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 from taskq_plus.config import taskq_home
 
@@ -63,6 +63,11 @@ PLUGIN_NAME_RE: re.Pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 #: (SPEC §3 FR-07 line 159 — 連續 3 次失敗).
 DISABLE_THRESHOLD: int = 3
 
+#: [FR-07] The recognised hook names, in the order `plugins list`
+#: reports them (SPEC §3 FR-07 lines 158-160). A module exposing
+#: neither is loaded but has no dispatchable surface.
+HOOK_NAMES: Tuple[str, ...] = ("pre_run", "post_run")
+
 #: [FR-07] Audit log filename (SPEC §5.2 line 314).
 _AUDIT_LOG_FILENAME: str = "audit.jsonl"
 
@@ -75,6 +80,20 @@ _AUDIT_LOCK = threading.Lock()
 def _audit_path():
     """[FR-07] Resolved path of the audit JSONL file."""
     return taskq_home() / _AUDIT_LOG_FILENAME
+
+
+def parse_plugin_specs(env_value: str) -> List[str]:
+    """[FR-07] Split a comma-separated allowlist into stripped specs.
+
+    Blank segments are dropped so a trailing comma or an all-empty
+    `TASKQ_PLUGINS` yields no specs rather than an empty-string spec
+    that would fail the name regex and be reported as a rejection.
+
+    This is the single parser for the allowlist: both the registry
+    loader and the `plugins list` CLI handler call it, so the two
+    surfaces cannot disagree about what counts as a declared spec.
+    """
+    return [spec.strip() for spec in env_value.split(",") if spec.strip()]
 
 
 def append_audit_event(event: dict) -> None:
@@ -179,40 +198,45 @@ class PluginRegistry:
         The loader never raises — the runner can still proceed
         with the partially successful records.
         """
-        for spec in self._parse_specs(self._plugin_env):
-            record = PluginRecord(name=spec)
-            if not PLUGIN_NAME_RE.match(spec):
-                record.status = "rejected"
-                record.error = "not a module name"
-                self._records.append(record)
-                continue
-            try:
-                module = importlib.import_module(spec)
-            except Exception as exc:  # noqa: BLE001 — NFR-03: re-raise/record
-                record.status = "failed"
-                record.error = f"{type(exc).__name__}: {exc}"
-                self._records.append(record)
-                continue
-            hooks: List[str] = []
-            if hasattr(module, "pre_run"):
-                hooks.append("pre_run")
-            if hasattr(module, "post_run"):
-                hooks.append("post_run")
-            if not hooks:
-                record.status = "failed"
-                record.error = "no pre_run or post_run hook"
-                record.module = module
-                self._records.append(record)
-                continue
-            record.module = module
-            record.hooks = hooks
-            record.status = "loaded"
-            self._records.append(record)
+        for spec in parse_plugin_specs(self._plugin_env):
+            self._records.append(self._resolve_spec(spec))
 
     @staticmethod
-    def _parse_specs(env_value: str) -> List[str]:
-        """[FR-07] Split a comma-separated allowlist into stripped specs."""
-        return [spec.strip() for spec in env_value.split(",") if spec.strip()]
+    def _resolve_spec(spec: str) -> PluginRecord:
+        """[FR-07] Resolve one allowlisted spec into a `PluginRecord`.
+
+        The regex whitelist is checked *before* the import so a path
+        or URL form never reaches `importlib.import_module`
+        (SPEC §3 FR-07 line 157, NFR-02). Every failure mode returns
+        a record rather than raising, so one bad spec cannot hide the
+        rest of the allowlist from `plugins list`.
+        """
+        record = PluginRecord(name=spec)
+
+        if not PLUGIN_NAME_RE.match(spec):
+            record.status = "rejected"
+            record.error = "not a module name"
+            return record
+
+        try:
+            module = importlib.import_module(spec)
+        except Exception as exc:  # noqa: BLE001 — NFR-03: re-raise/record
+            record.status = "failed"
+            record.error = f"{type(exc).__name__}: {exc}"
+            return record
+
+        # The module imported, so report it even when it turns out to
+        # expose no dispatchable hook — the operator needs to see that
+        # the import itself succeeded.
+        record.module = module
+        record.hooks = [hook for hook in HOOK_NAMES if hasattr(module, hook)]
+        if not record.hooks:
+            record.status = "failed"
+            record.error = "no pre_run or post_run hook"
+            return record
+
+        record.status = "loaded"
+        return record
 
     def run_pre(self, task, *, task_id: str, correlation_id: str) -> None:
         """[FR-07] Invoke `pre_run(task)` for every non-disabled plugin.
@@ -281,33 +305,22 @@ class PluginRegistry:
                     record.module.post_run(task, result)
             except Exception as exc:  # noqa: BLE001 — NFR-03: record
                 record.consecutive_failures += 1
-                failures = record.consecutive_failures
-                append_audit_event(
-                    {
-                        "event": "plugin_error",
-                        "task_id": task_id,
-                        "correlation_id": correlation_id,
-                        "detail": {
-                            "plugin": record.name,
-                            "hook": hook_name,
-                            "error": f"{type(exc).__name__}: {exc}",
-                            "consecutive_failures": failures,
-                        },
-                    }
+                self._audit_plugin_event(
+                    "plugin_error",
+                    record=record,
+                    hook_name=hook_name,
+                    task_id=task_id,
+                    correlation_id=correlation_id,
+                    error=f"{type(exc).__name__}: {exc}",
                 )
-                if failures >= DISABLE_THRESHOLD:
+                if record.consecutive_failures >= DISABLE_THRESHOLD:
                     record.disabled = True
-                    append_audit_event(
-                        {
-                            "event": "plugin_disabled",
-                            "task_id": task_id,
-                            "correlation_id": correlation_id,
-                            "detail": {
-                                "plugin": record.name,
-                                "hook": hook_name,
-                                "consecutive_failures": failures,
-                            },
-                        }
+                    self._audit_plugin_event(
+                        "plugin_disabled",
+                        record=record,
+                        hook_name=hook_name,
+                        task_id=task_id,
+                        correlation_id=correlation_id,
                     )
             else:
                 # Successful hook resets the consecutive-failure
@@ -315,3 +328,36 @@ class PluginRegistry:
                 # two failures does not push the plugin to the
                 # disable threshold.
                 record.consecutive_failures = 0
+
+    @staticmethod
+    def _audit_plugin_event(
+        event: str,
+        *,
+        record: PluginRecord,
+        hook_name: str,
+        task_id: str,
+        correlation_id: str,
+        **detail: Any,
+    ) -> None:
+        """[FR-07] Append one plugin lifecycle event to the audit log.
+
+        Both FR-07 events (`plugin_error`, `plugin_disabled`) share
+        the same envelope — the offending plugin, the hook that was
+        being dispatched, and the current consecutive-failure count —
+        so the naming of those fields lives here rather than being
+        spelled out at each call site. Event-specific fields (e.g.
+        `error`) are passed through `detail`.
+        """
+        append_audit_event(
+            {
+                "event": event,
+                "task_id": task_id,
+                "correlation_id": correlation_id,
+                "detail": {
+                    "plugin": record.name,
+                    "hook": hook_name,
+                    "consecutive_failures": record.consecutive_failures,
+                    **detail,
+                },
+            }
+        )

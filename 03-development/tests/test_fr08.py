@@ -38,6 +38,7 @@ by the Architecture Amendment Protocol.
 """
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import json as _json
@@ -55,6 +56,28 @@ import pytest
 
 # 8-hex-char task id pattern (uuid4 prefix).
 TASK_ID_RE = re.compile(r"^[0-9a-f]{8}$")
+
+
+@contextlib.contextmanager
+def _capture_io():
+    """Capture stdout + stderr into StringIO buffers for in-process tests.
+
+    `cli.commands.<handler>` calls `print()` / `sys.stderr.write`
+    directly. We redirect both streams around the call so the test
+    body can read what the handler printed without contaminating
+    pytest's own capture mechanism (which is also live for any
+    subprocess tests in the same file).
+
+    Yields a 2-tuple `(out_buf, err_buf)` whose `.getvalue()` returns
+    the text emitted during the `with` block.
+    """
+    out_buf, err_buf = io.StringIO(), io.StringIO()
+    old_out, old_err = sys.stdout, sys.stderr
+    sys.stdout, sys.stderr = out_buf, err_buf
+    try:
+        yield out_buf, err_buf
+    finally:
+        sys.stdout, sys.stderr = old_out, old_err
 
 
 def _run_subprocess(args: list, env: dict) -> subprocess.CompletedProcess:
@@ -817,3 +840,1066 @@ def test_fr08_inprocess_audit_redaction_passes_through_non_strings():
     assert _redact(3.14) == 3.14
     assert _redact(True) is True
     assert _redact(None) is None
+
+
+# ---------------------------------------------------------------------------
+# In-process coverage tests for `taskq_plus.cli.commands` (FR-08)
+#
+# These tests drive the `submit` / `run` / `status` / `list` /
+# `clear` / `export` / `graph` / `plugins` handlers directly so
+# pytest-cov measures them. The subprocess tests above cover the
+# end-to-end flow; this section pushes coverage to the 80% threshold
+# on lines the subprocess path can't reach. The standard pattern is
+# `_capture_io()` (a context manager that returns `(out_buf, err_buf)`
+# so the test reads what the handler wrote).
+# ---------------------------------------------------------------------------
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_happy_path():
+    """[FR-08] `commands.submit` validates, persists, and emits a submit event."""
+    from taskq_plus.cli.commands import submit
+
+    with _capture_io() as (out_buf, _err):
+        rc = submit(["echo hi"], use_disk=False)
+    assert rc == 0
+    assert TASK_ID_RE.match(out_buf.getvalue().strip())
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_emits_submit_audit_event(taskq_home):
+    """[FR-08] `commands.submit` appends a `submit` event to audit.jsonl."""
+    from taskq_plus.cli.commands import submit
+
+    with _capture_io():
+        rc = submit(["echo inproc"], use_disk=False)
+    assert rc == 0
+    audit_file = taskq_home / "audit.jsonl"
+    assert audit_file.exists()
+    raw = audit_file.read_text(encoding="utf-8")
+    assert '"event": "submit"' in raw
+    assert '"command": "echo inproc"' in raw
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_json_emit(tmp_path, monkeypatch):
+    """[FR-08] `submit --json` emits a single-line JSON object on stdout."""
+    monkeypatch.setenv("TASKQ_HOME", str(tmp_path))
+    from taskq_plus.cli.commands import submit
+
+    with _capture_io() as (out_buf, _):
+        rc = submit(["echo json", "--json"], use_disk=True)
+    assert rc == 0
+    payload = _json.loads(out_buf.getvalue().strip())
+    assert set(payload.keys()) == {"id", "status"}
+    assert TASK_ID_RE.match(payload["id"])
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_rejects_empty_command():
+    """[FR-08] An empty command surfaces as stderr + exit 2."""
+    from taskq_plus.cli.commands import submit
+
+    with _capture_io() as (_, err_buf):
+        rc = submit([""], use_disk=False)
+    assert rc == 2
+    assert "command is empty" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_rejects_command_too_long():
+    """[FR-08] A command exceeding 1000 chars surfaces as stderr + exit 2."""
+    from taskq_plus.cli.commands import submit
+
+    long_cmd = "echo " + ("a" * 1010)
+    with _capture_io() as (_, err_buf):
+        rc = submit([long_cmd], use_disk=False)
+    assert rc == 2
+    assert "exceeds 1000" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_rejects_injection_chars():
+    """[FR-08] Each of the seven injection chars surfaces as stderr + exit 2."""
+    from taskq_plus.cli.commands import submit
+
+    for ch in (";", "|", "&", "$", ">", "<", "`"):
+        with _capture_io() as (_, err_buf):
+            rc = submit([f"echo hi{ch}bad"], use_disk=False)
+        assert rc == 2, f"expected exit 2 for char {ch!r}"
+        assert "injection" in err_buf.getvalue(), (
+            f"missing 'injection' in stderr for {ch!r}"
+        )
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_rejects_duplicate_name():
+    """[FR-08] Two submitters with the same `--name` collide, exit 2."""
+    from taskq_plus.cli.commands import submit
+
+    with _capture_io():
+        rc1 = submit(["echo first", "--name", "dupe"], use_disk=False)
+    assert rc1 == 0
+    with _capture_io() as (_, err_buf):
+        rc2 = submit(["echo second", "--name", "dupe"], use_disk=False)
+    assert rc2 == 2
+    assert "duplicate name" in err_buf.getvalue()
+    assert "dupe" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_rejects_unknown_dependency():
+    """[FR-08] `--after <unknown>` exits 2 with `unknown dependency: <id>`."""
+    from taskq_plus.cli.commands import submit
+
+    with _capture_io() as (_, err_buf):
+        rc = submit(["echo hi", "--after", "deadbeef"], use_disk=False)
+    assert rc == 2
+    err = err_buf.getvalue()
+    assert "unknown dependency" in err
+    assert "deadbeef" in err
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_persists_via_disk_backend(tmp_path, monkeypatch):
+    """[FR-08] `submit(..., use_disk=True)` writes the task to `tasks.json`."""
+    monkeypatch.setenv("TASKQ_HOME", str(tmp_path))
+    from taskq_plus.cli.commands import submit
+
+    with _capture_io():
+        rc = submit(["echo ondisk"], use_disk=True)
+    assert rc == 0
+    tasks_file = tmp_path / "tasks.json"
+    assert tasks_file.exists()
+    payload = _json.loads(tasks_file.read_text(encoding="utf-8"))
+    assert len(payload) == 1
+    assert payload[0]["command"] == "echo ondisk"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_happy_path(taskq_home):
+    """[FR-08] `commands.run` dispatches, persists, and audits a single task."""
+    from taskq_plus.cli.commands import submit, run
+
+    with _capture_io() as (out_buf, _):
+        submit_rc = submit(["echo inproc"], use_disk=True)
+    assert submit_rc == 0
+    task_id = out_buf.getvalue().strip()
+
+    with _capture_io():
+        run_rc = run([task_id], use_disk=True)
+    assert run_rc == 0
+    audit = (taskq_home / "audit.jsonl").read_text(encoding="utf-8")
+    assert '"event": "run_start"' in audit
+    assert '"event": "run_end"' in audit
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_requires_id_or_all():
+    """[FR-08] `run` without an id and without `--all` exits 2."""
+    from taskq_plus.cli.commands import run
+
+    with _capture_io() as (_, err_buf):
+        rc = run([], use_disk=False)
+    assert rc == 2
+    assert "must supply a task id or --all" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_unknown_id_exits_two():
+    """[FR-08] `run <unknown>` exits 2 with `run: task '<id>' not found`."""
+    from taskq_plus.cli.commands import run
+
+    with _capture_io() as (_, err_buf):
+        rc = run(["notreal1"], use_disk=False)
+    assert rc == 2
+    assert "notreal1" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_breaker_open_rejects(taskq_home):
+    """[FR-08] OPEN breaker rejects a single run with exit 3 + `breaker open`."""
+    from taskq_plus.cli.commands import submit, run
+    from taskq_plus.storage.breaker_store import make_breaker_store
+    from taskq_plus.service.breaker import Breaker, STATE_OPEN
+
+    with _capture_io():
+        submit(["echo brk"], use_disk=True)
+    # Flip breaker to OPEN on disk so the run handler rejects before
+    # the executor. Pin opened_at to a huge value so cooldown is NOT
+    # elapsed (avoiding the OPEN -> HALF_OPEN `check()` transition
+    # that would let the run proceed).
+    bs = make_breaker_store()
+    br = Breaker(threshold=1)
+    br.failure_count = 5
+    br.state = STATE_OPEN
+    # A future timestamp guarantees `clock() - opened_at` is negative,
+    # so the cooldown gate never elapses and the breaker stays OPEN.
+    br.opened_at = 10 ** 18
+    bs.save(br)
+
+    with _capture_io() as (_, err_buf):
+        rc = run(["anything"], use_disk=True)
+    assert rc == 3
+    assert "breaker open" in err_buf.getvalue()
+    audit = (taskq_home / "audit.jsonl").read_text(encoding="utf-8")
+    assert '"event": "breaker_open"' in audit
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_with_cache_hit(taskq_home):
+    """[FR-08] `run <id> --cached` replays a recent completed result."""
+    from taskq_plus.cli.commands import submit, run
+    from taskq_plus.service.cache import record as cache_record
+    import time as _time
+
+    with _capture_io() as (out_buf, _):
+        submit(["echo cached"], use_disk=True)
+    task_id = out_buf.getvalue().strip()
+
+    cache_record(
+        "echo cached",
+        {
+            "command": "echo cached",
+            "exit_code": 0,
+            "stdout_tail": "cached\n",
+            "finished_at": _time.strftime(
+                "%Y-%m-%dT%H:%M:%S+00:00", _time.gmtime()
+            ),
+            "status": "done",
+        },
+    )
+
+    with _capture_io():
+        rc = run([task_id, "--cached"], use_disk=True)
+    assert rc == 0
+    audit = (taskq_home / "audit.jsonl").read_text(encoding="utf-8")
+    assert '"cached": true' in audit
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_all_dispatches_pending(taskq_home):
+    """[FR-08] `run --all` walks every pending task in dependency order."""
+    from taskq_plus.cli.commands import submit, run
+
+    with _capture_io() as (out_a, _):
+        submit(["echo a1"], use_disk=True)
+    a_id = out_a.getvalue().strip()
+    with _capture_io() as (out_b, _):
+        submit(["echo b1"], use_disk=True)
+    b_id = out_b.getvalue().strip()
+
+    # Reset the in-process breaker (in case a prior test left it
+    # OPEN) so `run --all` actually dispatches.
+    from taskq_plus.storage.breaker_store import make_breaker_store
+    from taskq_plus.service.breaker import Breaker
+    make_breaker_store().save(Breaker(threshold=3))
+
+    with _capture_io():
+        rc = run(["--all"], use_disk=True)
+    assert rc == 0
+    # `_run_all` persists each task's result through the store but
+    # does not emit run_start / run_end audit events of its own;
+    # verify the dispatch via the on-disk `tasks.json` instead.
+    tasks_payload = _json.loads(
+        (taskq_home / "tasks.json").read_text(encoding="utf-8")
+    )
+    finished = {
+        t["id"]: t["status"]
+        for t in tasks_payload if t["id"] in (a_id, b_id)
+    }
+    assert finished == {a_id: "done", b_id: "done"}, (
+        f"both tasks should be done after run --all; got {finished!r}"
+    )
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_all_dependency_blocks_downstream(taskq_home):
+    """[FR-08] A failed prereq cascades to a `blocked` downstream task."""
+    from taskq_plus.cli.commands import submit, run
+
+    with _capture_io() as (out_buf, _):
+        submit(["false"], use_disk=True)
+    first_id = out_buf.getvalue().strip()
+
+    with _capture_io() as (out_buf, _):
+        submit(["echo down", "--after", first_id], use_disk=True)
+    second_id = out_buf.getvalue().strip()
+
+    with _capture_io():
+        rc = run(["--all"], use_disk=True)
+    assert rc == 0
+    tasks_file = taskq_home / "tasks.json"
+    payload = _json.loads(tasks_file.read_text(encoding="utf-8"))
+    blocked = [t for t in payload if t["id"] == second_id]
+    assert blocked and blocked[0]["status"] == "blocked"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_timeout_records_status(taskq_home, monkeypatch):
+    """[FR-08] A timeout leaves the task persisted with `status="timeout"` and exits 4."""
+    from taskq_plus.cli.commands import submit, run
+
+    with _capture_io() as (out_buf, _):
+        submit(["sleep 5"], use_disk=True)
+    task_id = out_buf.getvalue().strip()
+    monkeypatch.setenv("TASKQ_TASK_TIMEOUT", "0.1")
+
+    with _capture_io():
+        rc = run([task_id], use_disk=True)
+    assert rc == 4
+    tasks_file = taskq_home / "tasks.json"
+    payload = _json.loads(tasks_file.read_text(encoding="utf-8"))
+    task_record = next(t for t in payload if t["id"] == task_id)
+    assert task_record["status"] == "timeout"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_status_task_found(taskq_home):
+    """[FR-08] `status <id>` prints every field and exits 0."""
+    from taskq_plus.cli.commands import submit, status
+
+    with _capture_io() as (out_buf, _):
+        submit(["echo stat"], use_disk=True)
+    task_id = out_buf.getvalue().strip()
+
+    with _capture_io() as (out_buf, _):
+        rc = status([task_id], use_disk=True)
+    assert rc == 0
+    out = out_buf.getvalue()
+    for key in ("id", "command", "status", "created_at"):
+        assert f"{key}:" in out
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_status_json(taskq_home):
+    """[FR-08] `status <id> --json` emits one parseable JSON line."""
+    from taskq_plus.cli.commands import submit, status
+
+    with _capture_io() as (out_buf, _):
+        submit(["echo sj"], use_disk=True)
+    task_id = out_buf.getvalue().strip()
+
+    with _capture_io() as (out_buf, _):
+        rc = status([task_id, "--json"], use_disk=True)
+    assert rc == 0
+    payload = _json.loads(out_buf.getvalue().strip())
+    assert payload["id"] == task_id
+    assert payload["command"] == "echo sj"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_status_unknown_id_exits_two():
+    """[FR-08] `status <unknown>` exits 2 with `unknown task: <id>`."""
+    from taskq_plus.cli.commands import status
+
+    with _capture_io() as (_, err_buf):
+        rc = status(["nope123"], use_disk=False)
+    assert rc == 2
+    assert "unknown task: nope123" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_list_tasks_human_and_json(taskq_home):
+    """[FR-08] `list` prints `id\tstatus\tcommand` or JSON with `--json`."""
+    from taskq_plus.cli.commands import submit, list_tasks
+
+    with _capture_io():
+        submit(["echo one"], use_disk=True)
+    with _capture_io():
+        submit(["echo two"], use_disk=True)
+
+    # Human format
+    with _capture_io() as (out_buf, _):
+        rc = list_tasks([], use_disk=True)
+    assert rc == 0
+    assert out_buf.getvalue().count("\t") >= 2  # at least one tab per task
+
+    # JSON format
+    with _capture_io() as (out_buf, _):
+        rc = list_tasks(["--json"], use_disk=True)
+    assert rc == 0
+    payload = _json.loads(out_buf.getvalue().strip())
+    assert len(payload) == 2
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_list_corrupt_store_exits_one(taskq_home):
+    """[FR-08] A corrupted `tasks.json` surfaces as `store corrupted` + exit 1."""
+    from taskq_plus.storage.task_store import reset_store_cache
+    from taskq_plus.cli.commands import list_tasks
+
+    (taskq_home / "tasks.json").write_text("this is not json", encoding="utf-8")
+    reset_store_cache()
+    with _capture_io() as (_, err_buf):
+        rc = list_tasks([], use_disk=True)
+    assert rc == 1
+    assert "store corrupted" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_clear_wipes_all_four_data_files(taskq_home):
+    """[FR-08] `clear` removes tasks/breaker/cache/audit from $TASKQ_HOME."""
+    from taskq_plus.cli.commands import submit, clear
+
+    with _capture_io():
+        submit(["echo to-clear"], use_disk=True)
+    # `submit` only touches tasks.json + audit.jsonl; prime the other
+    # two files so each of the four `$TASKQ_HOME` data files exists
+    # before `clear` runs.
+    (taskq_home / "breaker.json").write_text("{}", encoding="utf-8")
+    (taskq_home / "cache.json").write_text("{}", encoding="utf-8")
+    for name in ("tasks.json", "breaker.json", "cache.json", "audit.jsonl"):
+        assert (taskq_home / name).exists(), f"{name} should exist pre-clear"
+
+    with _capture_io():
+        rc = clear([])
+    assert rc == 0
+    for name in ("tasks.json", "breaker.json", "cache.json", "audit.jsonl"):
+        assert not (taskq_home / name).exists(), (
+            f"{name} must be deleted by clear"
+        )
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_clear_is_idempotent(taskq_home):
+    """[FR-08] `clear` on a fresh home still exits 0."""
+    from taskq_plus.cli.commands import clear
+
+    with _capture_io():
+        rc = clear([])
+    assert rc == 0
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_graph_prints_layered_topology(taskq_home):
+    """[FR-08] `graph` prints every node in dependency-satisfied order."""
+    from taskq_plus.cli.commands import submit, graph
+
+    with _capture_io() as (out_buf, _):
+        submit(["echo root"], use_disk=True)
+    root_id = out_buf.getvalue().strip()
+    with _capture_io():
+        submit(["echo child", "--after", root_id], use_disk=True)
+
+    with _capture_io() as (out_buf, _):
+        rc = graph([], use_disk=True)
+    assert rc == 0
+    assert root_id in out_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_graph_detects_cycle(taskq_home):
+    """[FR-08] A cyclic `tasks.json` yields exit 5 + `dependency cycle:` stderr."""
+    from taskq_plus.cli.commands import graph
+
+    payload = [
+        {
+            "id": "abcdef00",
+            "command": "echo a",
+            "name": None,
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "depends_on": ["12345678"],
+        },
+        {
+            "id": "12345678",
+            "command": "echo b",
+            "name": None,
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "depends_on": ["abcdef00"],
+        },
+    ]
+    (taskq_home / "tasks.json").write_text(
+        _json.dumps(payload), encoding="utf-8"
+    )
+    with _capture_io() as (_, err_buf):
+        rc = graph([], use_disk=True)
+    assert rc == 5
+    assert "dependency cycle:" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_graph_depth_cap_exceeded(taskq_home, monkeypatch):
+    """[FR-08] Depth > TASKQ_MAX_DAG_DEPTH triggers exit 5 + chain-too-deep."""
+    from taskq_plus.cli.commands import graph
+
+    payload = [
+        {
+            "id": "abcdef00",
+            "command": "echo a",
+            "name": None,
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "depends_on": ["12345678"],
+        },
+        {
+            "id": "12345678",
+            "command": "echo b",
+            "name": None,
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "depends_on": [],
+        },
+    ]
+    (taskq_home / "tasks.json").write_text(
+        _json.dumps(payload), encoding="utf-8"
+    )
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "1")
+    with _capture_io() as (_, err_buf):
+        rc = graph([], use_disk=True)
+    assert rc == 5
+    assert "dependency chain too deep" in err_buf.getvalue()
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugins_path_form_rejected_with_exit_six():
+    """[FR-08] A path-form plugin fails the regex and exits 6."""
+    from taskq_plus.cli.commands import plugins
+
+    with _capture_io() as (_, err_buf):
+        rc = plugins(["../evil.py"])
+    assert rc == 6
+    err = err_buf.getvalue()
+    assert "rejected module" in err
+    assert "../evil.py" in err
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugins_wellformed_module_loaded(monkeypatch):
+    """[FR-08] A well-formed module name is loaded and listed."""
+    monkeypatch.setenv("TASKQ_PLUGINS", "os")
+    from taskq_plus.cli.commands import plugins
+
+    with _capture_io() as (out_buf, _):
+        rc = plugins([])
+    assert rc == 0
+    out = out_buf.getvalue()
+    assert "os" in out
+    assert "hooks=" in out
+    assert "status=" in out
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_export_emits_unterminated_trailing_newline(taskq_home):
+    """[FR-08] `export` always appends one trailing newline to its output."""
+    from taskq_plus.cli.commands import submit, export
+
+    with _capture_io():
+        submit(["echo x"], use_disk=True)
+    with _capture_io() as (out_buf, _):
+        rc = export(["--format", "json"], use_disk=True)
+    assert rc == 0
+    out = out_buf.getvalue()
+    assert out.endswith("\n")
+    _json.loads(out.strip())
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_cli_main_run_missing_id(tmp_path, monkeypatch):
+    """[FR-08] `cli.main run` dispatches to the run handler with empty arg list."""
+    monkeypatch.setenv("TASKQ_HOME", str(tmp_path))
+    from taskq_plus.cli import main as cli_main
+
+    with _capture_io():
+        rc = cli_main.main(["run"])
+    assert rc == 2  # missing id → exit 2
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_cli_main_unknown_command(tmp_path, monkeypatch):
+    """[FR-08] `cli.main` with an unknown subcommand exits non-zero via argparse."""
+    monkeypatch.setenv("TASKQ_HOME", str(tmp_path))
+    from taskq_plus.cli import main as cli_main
+
+    try:
+        with _capture_io():
+            rc = cli_main.main(["nope"])
+    except SystemExit as exc:
+        assert exc.code != 0
+    else:
+        # argparse may exit 2 via SystemExit or return code 2 directly.
+        assert rc != 0
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_idempotent_no_pending(taskq_home):
+    """[FR-08] `run --all` on an empty store exits 0 without dispatching."""
+    from taskq_plus.cli.commands import run
+
+    with _capture_io():
+        rc = run(["--all"], use_disk=True)
+    assert rc == 0
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_run_all_with_cycle_returns_zero(taskq_home):
+    """[FR-08] `run --all` returns 0 when the persisted graph has a cycle."""
+    from taskq_plus.cli.commands import run
+
+    payload = [
+        {
+            "id": "abcdef00",
+            "command": "echo a",
+            "name": None,
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "depends_on": ["12345678"],
+        },
+        {
+            "id": "12345678",
+            "command": "echo b",
+            "name": None,
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "depends_on": ["abcdef00"],
+        },
+    ]
+    (taskq_home / "tasks.json").write_text(
+        _json.dumps(payload), encoding="utf-8"
+    )
+    with _capture_io():
+        rc = run(["--all"], use_disk=True)
+    assert rc == 0
+    audit_file = taskq_home / "audit.jsonl"
+    if audit_file.exists():
+        raw = audit_file.read_text(encoding="utf-8")
+        assert '"event": "run_end"' not in raw
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_max_workers_respects_env(monkeypatch):
+    """[FR-08] `_max_workers` reads TASKQ_MAX_WORKERS at call time."""
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "1")
+    from taskq_plus.cli.commands import _max_workers
+
+    assert _max_workers() == 1
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_max_dag_depth_respects_env(monkeypatch):
+    """[FR-08] `_max_dag_depth` reads TASKQ_MAX_DAG_DEPTH at call time."""
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "5")
+    from taskq_plus.cli.commands import _max_dag_depth
+
+    assert _max_dag_depth() == 5
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_timeout_budget_respects_env(monkeypatch):
+    """[FR-08] `_timeout_budget` reads TASKQ_TASK_TIMEOUT at call time."""
+    monkeypatch.setenv("TASKQ_TASK_TIMEOUT", "3.5")
+    from taskq_plus.cli.commands import _timeout_budget
+
+    assert _timeout_budget() == 3.5
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_timeout_budget_invalid_value_falls_back(monkeypatch):
+    """[FR-08] An unparseable TASKQ_TASK_TIMEOUT falls back to the default."""
+    monkeypatch.setenv("TASKQ_TASK_TIMEOUT", "not-a-float")
+    from taskq_plus.cli.commands import _timeout_budget, DEFAULT_TASK_TIMEOUT
+
+    assert _timeout_budget() == DEFAULT_TASK_TIMEOUT
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_max_workers_invalid_value_falls_back(monkeypatch):
+    """[FR-08] An unparseable TASKQ_MAX_WORKERS falls back to the default."""
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "not-an-int")
+    from taskq_plus.cli.commands import _max_workers, DEFAULT_MAX_WORKERS
+
+    assert _max_workers() == DEFAULT_MAX_WORKERS
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_max_dag_depth_invalid_value_falls_back(monkeypatch):
+    """[FR-08] An unparseable TASKQ_MAX_DAG_DEPTH falls back to the default."""
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "not-an-int")
+    from taskq_plus.cli.commands import (
+        _max_dag_depth, DEFAULT_MAX_DAG_DEPTH,
+    )
+
+    assert _max_dag_depth() == DEFAULT_MAX_DAG_DEPTH
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_format_validation_error_with_injection_msg():
+    """[FR-08] `_format_validation_error` returns the cleaned msg without prefix."""
+    from pydantic import ValidationError
+    from taskq_plus.models.task import TaskSubmission
+
+    # Build a ValidationError through the model API to exercise the
+    # real error shape (with `Value error, ` prefix that the helper
+    # strips).
+    try:
+        TaskSubmission(command=";bad")
+    except ValidationError as exc:
+        from taskq_plus.cli.commands import _format_validation_error
+
+        msg = _format_validation_error(exc)
+        # The cleaned msg should reference the injection character; the
+        # raw `Value error, ` prefix that pydantic prepends must be
+        # stripped if it was present.
+        assert msg == msg.lstrip("Value error, ")
+        assert msg  # non-empty
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_task_payload_round_trips_fields(taskq_home):
+    """[FR-08] `_task_payload` returns every persisted field."""
+    from taskq_plus.cli.commands import submit, _task_payload
+    from taskq_plus.storage.task_store import get_store
+
+    with _capture_io() as (out_buf, _):
+        submit(["echo pl"], use_disk=True)
+    task_id = out_buf.getvalue().strip()
+    task = get_store(use_disk=True).find(task_id)
+    payload = _task_payload(task)
+    for key in ("id", "command", "status", "created_at", "depends_on"):
+        assert key in payload
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_dependency_after_valid():
+    """[FR-08] Submitting with a valid `--after` succeeds with another task id."""
+    from taskq_plus.cli.commands import submit
+
+    with _capture_io() as (out_buf, _):
+        submit(["echo first"], use_disk=False)
+    first_id = out_buf.getvalue().strip()
+
+    with _capture_io() as (out_buf, _):
+        rc = submit(["echo second", "--after", first_id], use_disk=False)
+    assert rc == 0
+    assert TASK_ID_RE.match(out_buf.getvalue().strip())
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_submit_persists_through_cycle_check(taskq_home):
+    """[FR-08] Submitting into a cyclic persisted graph yields exit 5 + cycle path."""
+    from taskq_plus.cli.commands import submit
+
+    payload = [
+        {
+            "id": "abcdef00",
+            "command": "echo a",
+            "name": None,
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "depends_on": ["12345678"],
+        },
+        {
+            "id": "12345678",
+            "command": "echo b",
+            "name": None,
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "depends_on": ["abcdef00"],
+        },
+    ]
+    (taskq_home / "tasks.json").write_text(
+        _json.dumps(payload), encoding="utf-8"
+    )
+    from taskq_plus.storage.task_store import reset_store_cache
+    reset_store_cache()
+    with _capture_io() as (_, err_buf):
+        rc = submit(["echo new", "--after", "abcdef00"], use_disk=True)
+    assert rc == 5
+    assert "dependency cycle" in err_buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Plugin audit path coverage (FR-08 contract: plugin_error / plugin_disabled
+# events land in the JSONL audit log with redaction applied). The
+# whole-project coverage dimension is measured against `taskq_plus/...`, so
+# exercising the plugin dispatch through the in-process commands path is
+# how the FR-08 audit contract raises coverage of the plugin module —
+# the test's intent (audit-event emission + redaction on the
+# `plugin_error` / `plugin_disabled` paths) is FR-08, even though the
+# dispatched code is owned by FR-07.
+# ---------------------------------------------------------------------------
+
+# The plugin fixtures live under `tests/_test_plugins/` (a sibling of this
+# file). pytest's `pythonpath` does NOT expose them by default, so the
+# plugin tests append the path BEFORE any `import` of `taskq_test_plugins`.
+_TEST_PLUGINS_DIR = (
+    Path(__file__).resolve().parent / "_test_plugins"
+)
+if str(_TEST_PLUGINS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TEST_PLUGINS_DIR))
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugin_error_emits_redacted_audit_event(
+    taskq_home, monkeypatch
+):
+    """[FR-08] A `pre_run` exception is recorded as `plugin_error`
+    in the audit log with NFR-04 redaction applied."""
+    # Force the audit log to live under this test's `taskq_home`.
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    from taskq_plus.models.task import Task
+    from taskq_plus.service.plugins import PluginRegistry
+
+    registry = PluginRegistry(plugin_env="taskq_test_plugins.raiser")
+    registry.load()
+    # The plugin fixture must be importable.
+    import importlib
+    importlib.import_module("taskq_test_plugins.raiser")
+    # Force the registry to use the raiser module even if `load` flagged it.
+    for record in registry.records:
+        record.module = importlib.import_module("taskq_test_plugins.raiser")
+        record.hooks = ["pre_run", "post_run"]
+        record.status = "loaded"
+        record.disabled = False
+        record.consecutive_failures = 0
+
+    fake_task = Task(command="echo hi", name="t1", depends_on=[])
+    registry.run_pre(
+        fake_task, task_id="deadbeef", correlation_id="corr-x"
+    )
+    events = _read_audit_jsonl(taskq_home)
+    plugin_errors = [e for e in events if e.get("event") == "plugin_error"]
+    assert plugin_errors, (
+        f"expected at least one plugin_error event; got {events!r}"
+    )
+    err_event = plugin_errors[0]
+    assert err_event["task_id"] == "deadbeef"
+    assert err_event["correlation_id"] == "corr-x"
+    detail = err_event["detail"]
+    assert detail["plugin"] == "taskq_test_plugins.raiser"
+    assert detail["hook"] == "pre_run"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugin_disabled_after_threshold(
+    taskq_home, monkeypatch
+):
+    """[FR-08] After 3 consecutive failures a plugin is auto-disabled and
+    a `plugin_disabled` audit event is recorded."""
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    from taskq_plus.models.task import Task
+    from taskq_plus.service.plugins import PluginRegistry
+
+    registry = PluginRegistry(plugin_env="taskq_test_plugins.raiser")
+    registry.load()
+    import importlib
+    raiser = importlib.import_module("taskq_test_plugins.raiser")
+    for record in registry.records:
+        record.module = raiser
+        record.hooks = ["pre_run", "post_run"]
+        record.status = "loaded"
+        record.disabled = False
+        record.consecutive_failures = 0
+
+    fake_task = Task(command="echo hi", name="t1", depends_on=[])
+    # Three consecutive pre_run failures → auto-disable.
+    for _ in range(3):
+        registry.run_pre(
+            fake_task, task_id="cafef00d", correlation_id="corr-y"
+        )
+    disabled = [r for r in registry.records if r.disabled]
+    assert disabled, "plugin should be auto-disabled after 3 failures"
+    events = _read_audit_jsonl(taskq_home)
+    disable_events = [
+        e for e in events if e.get("event") == "plugin_disabled"
+    ]
+    assert disable_events, (
+        f"expected at least one plugin_disabled event; got {events!r}"
+    )
+    assert disable_events[0]["detail"]["plugin"] == (
+        "taskq_test_plugins.raiser"
+    )
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugin_post_run_error_path(
+    taskq_home, monkeypatch
+):
+    """[FR-08] A `post_run` exception also lands as a `plugin_error`."""
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    from taskq_plus.models.task import Task
+    from taskq_plus.service.plugins import PluginRegistry
+
+    registry = PluginRegistry(plugin_env="taskq_test_plugins.raiser")
+    registry.load()
+    import importlib
+    raiser = importlib.import_module("taskq_test_plugins.raiser")
+    # Force pre_run to be a no-op so post_run is reached and raises.
+    raiser.pre_run = lambda task: None
+    raiser.post_run = lambda task, result: (_ for _ in ()).throw(
+        RuntimeError("post_run boom")
+    )
+    for record in registry.records:
+        record.module = raiser
+        record.hooks = ["pre_run", "post_run"]
+        record.status = "loaded"
+        record.disabled = False
+        record.consecutive_failures = 0
+
+    fake_task = Task(command="echo hi", name="t1", depends_on=[])
+    fake_result = type("R", (), {"status": "done", "exit_code": 0})()
+    registry.run_post(
+        fake_task, fake_result, task_id="d00dface", correlation_id="corr-z"
+    )
+    events = _read_audit_jsonl(taskq_home)
+    errs = [e for e in events if e.get("event") == "plugin_error"]
+    assert errs, f"expected plugin_error from post_run path; got {events!r}"
+    assert errs[0]["detail"]["hook"] == "post_run"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugin_resolves_path_form(
+    taskq_home, monkeypatch
+):
+    """[FR-08] A path-form spec is rejected and recorded as such;
+    the registry surfaces a `rejected` PluginRecord so the operator
+    can see the failure mode in `plugins list`."""
+    from taskq_plus.service.plugins import PluginRegistry, parse_plugin_specs
+
+    # parse_plugin_specs is exercised here.
+    assert parse_plugin_specs("") == []
+    assert parse_plugin_specs("a,,b,") == ["a", "b"]
+
+    registry = PluginRegistry(plugin_env="../evil.py,no.such.module")
+    registry.load()
+    statuses = sorted({r.status for r in registry.records})
+    # `../evil.py` fails the regex whitelist → rejected; `no.such.module`
+    # passes the regex but import fails → failed.
+    assert "rejected" in statuses
+    assert "failed" in statuses
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugin_no_hooks_loaded_recorded(
+    taskq_home, monkeypatch
+):
+    """[FR-08] A module that imports but exposes no hooks is reported
+    as `failed` with a clear error — the audit contract does not emit
+    an event for that, but the record is built."""
+    # The `taskq_test_plugins.__init__` has no hooks.
+    from taskq_plus.service.plugins import PluginRegistry
+
+    registry = PluginRegistry(plugin_env="taskq_test_plugins")
+    registry.load()
+    failed = [r for r in registry.records if r.status == "failed"]
+    assert failed, (
+        f"a no-hooks module must be reported as failed; got "
+        f"{[r.status for r in registry.records]!r}"
+    )
+    assert failed[0].error == "no pre_run or post_run hook"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugin_disabled_skips_subsequent_runs(
+    taskq_home, monkeypatch
+):
+    """[FR-08] A disabled plugin is skipped on the next run_pre call
+    (no audit event emitted for the skipped invocation)."""
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    from taskq_plus.models.task import Task
+    from taskq_plus.service.plugins import PluginRegistry
+
+    registry = PluginRegistry(plugin_env="taskq_test_plugins.raiser")
+    registry.load()
+    import importlib
+    raiser = importlib.import_module("taskq_test_plugins.raiser")
+    for record in registry.records:
+        record.module = raiser
+        record.hooks = ["pre_run", "post_run"]
+        record.status = "loaded"
+        record.disabled = True  # pre-disable
+        record.consecutive_failures = 0
+
+    fake_task = Task(command="echo hi", name="t1", depends_on=[])
+    registry.run_pre(
+        fake_task, task_id="abcdef00", correlation_id="corr-d"
+    )
+    events = _read_audit_jsonl(taskq_home)
+    # A pre-disabled plugin should not produce a plugin_error event.
+    assert not [e for e in events if e.get("event") == "plugin_error"]
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugin_module_none_is_skipped(
+    taskq_home, monkeypatch
+):
+    """[FR-08] A record whose `module` is None is skipped without
+    crashing the dispatch loop."""
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    from taskq_plus.models.task import Task
+    from taskq_plus.service.plugins import PluginRegistry, PluginRecord
+
+    registry = PluginRegistry(plugin_env="x.does.not.matter")
+    # Inject a synthetic record with module=None and hooks=[] to exercise
+    # the defensive `module is None or hook_name not in record.hooks`
+    # branch in `_invoke_phase`.
+    bogus = PluginRecord(name="bogus")
+    bogus.module = None
+    bogus.hooks = ["pre_run"]
+    bogus.status = "loaded"
+    bogus.disabled = False
+    registry._records.append(bogus)
+
+    fake_task = Task(command="echo hi", name="t1", depends_on=[])
+    # Should NOT raise — the dispatch loop must tolerate a None module.
+    registry.run_pre(
+        fake_task, task_id="00c0ffee", correlation_id="corr-m"
+    )
+    events = _read_audit_jsonl(taskq_home)
+    assert not [e for e in events if e.get("event") == "plugin_error"]
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_plugin_successful_hook_resets_counter(
+    taskq_home, monkeypatch
+):
+    """[FR-08] A successful `pre_run` resets `consecutive_failures` to 0
+    so a single success between two failures does not push the plugin
+    to the disable threshold."""
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    from taskq_plus.models.task import Task
+    from taskq_plus.service.plugins import PluginRegistry
+
+    registry = PluginRegistry(plugin_env="taskq_test_plugins.noop")
+    registry.load()
+    import importlib
+    noop = importlib.import_module("taskq_test_plugins.noop")
+    for record in registry.records:
+        record.module = noop
+        record.hooks = ["pre_run", "post_run"]
+        record.status = "loaded"
+        record.disabled = False
+        record.consecutive_failures = 2  # already 2 strikes
+
+    fake_task = Task(command="echo hi", name="t1", depends_on=[])
+    registry.run_pre(
+        fake_task, task_id="facefeed", correlation_id="corr-s"
+    )
+    record = registry.records[0]
+    assert record.consecutive_failures == 0, (
+        f"a successful hook must reset consecutive_failures to 0; "
+        f"got {record.consecutive_failures}"
+    )
+    assert not record.disabled, (
+        "a single success must NOT auto-disable a plugin"
+    )

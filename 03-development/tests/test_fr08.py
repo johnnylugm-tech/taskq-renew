@@ -493,3 +493,327 @@ test_fr08_exports_agree_and_escape_csv_fields = pytest.mark.parametrize(
 )(
     _fr08_exports_agree_and_escape_csv_fields
 )
+
+
+# ---------------------------------------------------------------------------
+# In-process coverage tests (NFR-09 / coverage dimension)
+#
+# The two subprocess tests above exercise the user-facing entry point
+# (SPEC §8 rows 13–14) but pytest-cov cannot measure coverage inside a
+# child process. The harness's SUBPROCESS COVERAGE CEILING rule therefore
+# requires in-process tests for the declared SAB modules
+# (`taskq_plus.observability.audit`, `taskq_plus.observability.export`,
+# `taskq_plus.cli.commands`) so the coverage dimension has signal.
+# ---------------------------------------------------------------------------
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_redaction_writes_no_plaintext_secrets(
+    taskq_home, monkeypatch
+):
+    """[FR-08] NFR-04 redaction is applied BEFORE the line is written.
+
+    Drives `taskq_plus.observability.audit.append_event` directly so the
+    on-disk line is whatever the production code wrote, then parses
+    the file and asserts no plaintext secret survived redaction.
+    """
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    # The conftest `taskq_home` fixture already sets TASKQ_HOME, but the
+    # audit module's path resolver reads the env var on every call
+    # without going through monkeypatch.setenv, so the explicit patch
+    # above is the deterministic binding.
+    from taskq_plus.observability.audit import append_event
+
+    append_event(
+        "submit",
+        task_id="cafef00d",
+        correlation_id="corr-1",
+        detail={"command": "echo Bearer sk-abcdefghijklmnop", "token": "token=shhh"},
+    )
+    append_event(
+        "run_start",
+        task_id="cafef00d",
+        correlation_id="corr-1",
+        detail={"stdout_tail": "ok"},
+    )
+    append_event(
+        "run_end",
+        task_id="cafef00d",
+        correlation_id="corr-1",
+        detail={"status": "done"},
+    )
+
+    raw = (taskq_home / "audit.jsonl").read_text(encoding="utf-8")
+    assert "sk-abcdefghijklmnop" not in raw
+    assert "shhh" not in raw
+    # `token=` (literal token= prefix) must be redacted, but the audit
+    # detail key "token" is allowed; the regex matches `token=\S+` only.
+    assert "[REDACTED]" in raw
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_read_events_skips_corrupt_lines(
+    taskq_home, monkeypatch
+):
+    """[FR-08] `read_events` is resilient to partially-corrupt JSONL."""
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    audit_file = taskq_home / "audit.jsonl"
+    audit_file.write_text(
+        '{"ts":"2026-01-01T00:00:00+00:00","event":"submit",'
+        '"task_id":"a","correlation_id":"c","detail":{}}\n'
+        "this is not json\n"
+        '{"ts":"2026-01-01T00:00:01+00:00","event":"run_end",'
+        '"task_id":"a","correlation_id":"c","detail":{}}\n',
+        encoding="utf-8",
+    )
+    from taskq_plus.observability.audit import read_events
+
+    events = read_events()
+    assert len(events) == 2
+    assert events[0]["event"] == "submit"
+    assert events[1]["event"] == "run_end"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_export_renderers_for_all_three_formats():
+    """[FR-08] Each renderer emits the canonical field set, agreed."""
+    from taskq_plus.observability import export
+
+    records = [
+        {"id": "x", "name": 'a,b"c', "status": "done"},
+        {"id": "y", "name": "z", "status": "pending"},
+    ]
+    json_out = export.render_json(records)
+    csv_out = export.render_csv(records)
+    md_out = export.render_md(records)
+    parsed = _json.loads(json_out)
+    assert len(parsed) == 2
+    assert csv_out.splitlines()[0].split(",") == ["id", "name", "status"]
+    assert md_out.splitlines()[0] == "| id | name | status |"
+    # MD has separator on line 2
+    assert "---" in md_out.splitlines()[1]
+    # Unknown format raises.
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        export.render(records, "xml")
+    # Empty records: CSV / MD return empty string.
+    assert export.render_csv([]) == ""
+    assert export.render_md([]) == ""
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_export_canonical_field_set_is_first_record_keys():
+    """[FR-08] `canonical_field_set` returns the first record's keys."""
+    from taskq_plus.observability.export import canonical_field_set
+
+    records = [{"b": 1, "a": 2, "c": 3}]
+    assert canonical_field_set(records) == ["b", "a", "c"]
+    assert canonical_field_set([]) == []
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_export_to_records_handles_models_and_dicts():
+    """[FR-08] `to_records` adapts pydantic models + plain dicts."""
+    from taskq_plus.observability.export import to_records
+
+    class _FakeModel:
+        def model_dump(self, mode=None):
+            return {"id": "1", "command": "echo"}
+
+    out = to_records([_FakeModel(), {"id": "2", "command": "ls"}])
+    assert out == [{"id": "1", "command": "echo"}, {"id": "2", "command": "ls"}]
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_new_correlation_id_is_unique():
+    """[FR-08] `new_correlation_id` returns distinct values per call."""
+    from taskq_plus.observability.audit import new_correlation_id
+
+    ids = {new_correlation_id() for _ in range(20)}
+    assert len(ids) == 20
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_redaction_recurses_into_dicts_and_lists():
+    """[FR-08] `_redact` recurses into dict / list values."""
+    from taskq_plus.observability.audit import _redact
+
+    payload = {
+        "nested": {"token": "token=shh", "ok": "fine"},
+        "items": ["Bearer xyz1234567890", "harmless"],
+        "flat": "sk-abcdefghij",
+    }
+    out = _redact(payload)
+    assert out["nested"]["token"] == "[REDACTED]"
+    assert out["nested"]["ok"] == "fine"
+    assert out["items"][0] == "[REDACTED]"
+    assert out["items"][1] == "harmless"
+    assert out["flat"] == "[REDACTED]"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_export_in_process_renderers_round_trip_csv():
+    """[FR-08] CSV renderer output is parseable by csv.DictReader."""
+    from taskq_plus.observability.export import render_csv, render_json
+
+    records = [
+        {"id": "1", "name": "plain"},
+        {"id": "2", "name": 'has,comma and "quote"'},
+    ]
+    csv_out = render_csv(records)
+    parsed = list(csv.reader(io.StringIO(csv_out)))
+    # header + 2 data rows
+    assert len(parsed) == 3
+    assert parsed[0] == ["id", "name"]
+    assert parsed[1] == ["1", "plain"]
+    assert parsed[2] == ["2", 'has,comma and "quote"']
+    # And the JSON output round-trips through json.loads.
+    assert _json.loads(render_json(records)) == records
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_export_md_renders_empty_for_no_records():
+    """[FR-08] Markdown renderer returns empty string for empty list."""
+    from taskq_plus.observability.export import render_md
+
+    assert render_md([]) == ""
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_commands_export_with_no_records(taskq_home, monkeypatch, capsys):
+    """[FR-08] `commands.export` handles an empty store."""
+    from taskq_plus.cli.commands import export as export_cmd
+
+    rc = export_cmd(["--format", "json"], use_disk=True)
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Empty store → empty JSON array.
+    assert out.strip() == "[]"
+    # CSV / MD with no records: empty payload + no error.
+    rc = export_cmd(["--format", "csv"], use_disk=True)
+    assert rc == 0
+    rc = export_cmd(["--format", "md"], use_disk=True)
+    assert rc == 0
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_commands_export_via_cli_main(tmp_path, monkeypatch, capsys):
+    """[FR-08] `python -m taskq_plus export --format ...` dispatches in-process."""
+    monkeypatch.setenv("TASKQ_HOME", str(tmp_path))
+    from taskq_plus.cli import main as cli_main
+
+    rc = cli_main.main(["export", "--format", "json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert out.strip() == "[]"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_commands_export_via_cli_main_csv_md(
+    tmp_path, monkeypatch, capsys
+):
+    """[FR-08] CLI dispatcher reaches CSV / MD export paths in-process."""
+    monkeypatch.setenv("TASKQ_HOME", str(tmp_path))
+    from taskq_plus.cli import main as cli_main
+
+    for fmt in ("csv", "md"):
+        capsys.readouterr()
+        rc = cli_main.main(["export", "--format", fmt])
+        assert rc == 0
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_path_honours_taskq_audit_log_env(
+    taskq_home, monkeypatch
+):
+    """[FR-08] `_audit_path` returns the TASKQ_AUDIT_LOG override when set."""
+    custom = taskq_home / "custom-audit.jsonl"
+    monkeypatch.setenv("TASKQ_AUDIT_LOG", str(custom))
+    monkeypatch.delenv("TASKQ_HOME", raising=False)
+    from taskq_plus.observability.audit import _audit_path
+
+    assert _audit_path() == str(custom)
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_read_events_skips_blank_lines(
+    taskq_home, monkeypatch
+):
+    """[FR-08] Blank lines in audit.jsonl are skipped by read_events."""
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit.jsonl"),
+    )
+    audit_file = taskq_home / "audit.jsonl"
+    audit_file.write_text(
+        "\n"
+        '{"ts":"2026-01-01T00:00:00+00:00","event":"submit",'
+        '"task_id":"a","correlation_id":"c","detail":{}}\n'
+        "\n"
+        '{"ts":"2026-01-01T00:00:01+00:00","event":"run_end",'
+        '"task_id":"a","correlation_id":"c","detail":{}}\n',
+        encoding="utf-8",
+    )
+    from taskq_plus.observability.audit import read_events
+
+    events = read_events()
+    assert len(events) == 2
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_read_events_returns_empty_when_missing(
+    taskq_home, monkeypatch
+):
+    """[FR-08] read_events returns [] when the audit file is absent."""
+    monkeypatch.setattr(
+        "taskq_plus.observability.audit._audit_path",
+        lambda: str(taskq_home / "audit-does-not-exist.jsonl"),
+    )
+    from taskq_plus.observability.audit import read_events
+
+    assert read_events() == []
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_read_events_accepts_explicit_path(
+    taskq_home, monkeypatch
+):
+    """[FR-08] read_events(path=...) bypasses _audit_path."""
+    custom = taskq_home / "explicit.jsonl"
+    custom.write_text(
+        '{"ts":"2026-01-01T00:00:00+00:00","event":"submit",'
+        '"task_id":"a","correlation_id":"c","detail":{}}\n',
+        encoding="utf-8",
+    )
+    from taskq_plus.observability.audit import read_events
+
+    assert len(read_events(path=str(custom))) == 1
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_path_defaults_to_taskq_home(
+    monkeypatch
+):
+    """[FR-08] `_audit_path` falls back to `$TASKQ_HOME/audit.jsonl`."""
+    monkeypatch.delenv("TASKQ_AUDIT_LOG", raising=False)
+    monkeypatch.setenv("TASKQ_HOME", "/tmp/audit-fallback-home")
+    from taskq_plus.observability.audit import _audit_path
+
+    assert _audit_path() == "/tmp/audit-fallback-home/audit.jsonl"
+
+
+# NFR-04 / NFR-09
+def test_fr08_inprocess_audit_redaction_passes_through_non_strings():
+    """[FR-08] `_redact` leaves non-string scalars unchanged."""
+    from taskq_plus.observability.audit import _redact
+
+    assert _redact(42) == 42
+    assert _redact(3.14) == 3.14
+    assert _redact(True) is True
+    assert _redact(None) is None

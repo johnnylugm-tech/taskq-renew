@@ -78,8 +78,32 @@ def _audit_path() -> str:
     if override:
         return override
     home = os.environ.get("TASKQ_HOME", "~/.taskq")
-    home_path = os.path.expanduser(home)
-    return os.path.join(home_path, DEFAULT_AUDIT_LOG_BASENAME)
+    return os.path.join(
+        os.path.expanduser(home), DEFAULT_AUDIT_LOG_BASENAME
+    )
+
+
+def _append_line(path: str, line: str) -> None:
+    """[FR-08] Append one already-serialised line to the audit log.
+
+    Isolates the durability contract (NFR-03) from the record shape:
+    the parent directory is created on demand, the file is opened
+    `O_APPEND` so concurrent writers cannot overwrite each other's
+    bytes, and the write is `fsync`'d before the descriptor closes.
+    A crash mid-write therefore leaves the prior lines intact and the
+    next line starts on a fresh byte boundary. `_AUDIT_LOCK`
+    serialises the `run --all` worker threads within this process.
+    """
+    with _AUDIT_LOCK:
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        try:
+            os.write(fd, line.encode("utf-8"))
+            os.fsync(fd)
+        finally:
+            os.close(fd)
 
 
 def new_correlation_id() -> str:
@@ -142,23 +166,26 @@ def append_event(
         "correlation_id": correlation_id,
         "detail": _redact(detail) if detail is not None else {},
     }
-    payload = json.dumps(record, ensure_ascii=False) + "\n"
-    path = _audit_path()
-    with _AUDIT_LOCK:
-        directory = os.path.dirname(path)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-        fd = os.open(
-            path,
-            os.O_WRONLY | os.O_CREAT | os.O_APPEND,
-            0o644,
-        )
-        try:
-            os.write(fd, payload.encode("utf-8"))
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+    _append_line(
+        _audit_path(), json.dumps(record, ensure_ascii=False) + "\n"
+    )
     return record
+
+
+def _decode_line(line: str) -> Optional[dict]:
+    """[FR-08] Decode one JSONL line, or `None` if it is blank/corrupt.
+
+    A partially written trailing line (the crash window NFR-03
+    tolerates) must not turn the whole read path into an error, so
+    an undecodable line is reported as absent rather than raised.
+    """
+    stripped = line.strip()
+    if not stripped:
+        return None
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        return None
 
 
 def read_events(path: Optional[str] = None) -> list:
@@ -172,14 +199,6 @@ def read_events(path: Optional[str] = None) -> list:
     target = path if path is not None else _audit_path()
     if not os.path.exists(target):
         return []
-    events: list = []
     with open(target, "r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                events.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return events
+        decoded = (_decode_line(line) for line in fh)
+        return [event for event in decoded if event is not None]

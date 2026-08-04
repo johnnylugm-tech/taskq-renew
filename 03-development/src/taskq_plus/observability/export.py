@@ -27,21 +27,31 @@ import json
 from typing import Iterable, List, Sequence
 
 
-#: [FR-08] Valid format names (SPEC §3 FR-08 lines 181-183).
-VALID_FORMATS: frozenset[str] = frozenset({"json", "csv", "md"})
+def _as_dicts(records: Sequence[dict]) -> List[dict]:
+    """Return a shallow copy of each record as a plain `dict`.
 
-
-def _canonicalise(records: Sequence[dict]) -> List[dict]:
-    """Return the records with a uniform key insertion order.
-
-    All three formats are required to expose the same field set
-    (SPEC §3 FR-08 line 187). Picking the first record's key
-    order as the canonical header order keeps the three renderers
-    aligned when the input list is non-empty; a uniform `dict`
-    serialisation also guarantees the JSON payload preserves
-    insertion order on Python 3.7+.
+    The renderers never mutate their input, and copying here keeps
+    that guarantee local instead of relying on every renderer to
+    behave. `dict()` also normalises `dict` subclasses (and
+    preserves insertion order on Python 3.7+), so the field order
+    a caller built its records with is the order all three formats
+    emit — which is what makes the agreement invariant
+    (SPEC §3 FR-08 line 187) hold by construction.
     """
     return [dict(record) for record in records]
+
+
+def _field_order(records: Sequence[dict]) -> List[str]:
+    """Return the canonical field order: the first record's keys.
+
+    Single source of truth for the header of every tabular format,
+    so `csv` and `md` cannot drift apart from each other or from
+    the `json` field set (SPEC §3 FR-08 line 187). Empty input has
+    no fields.
+    """
+    if not records:
+        return []
+    return list(records[0].keys())
 
 
 def render_json(records: Sequence[dict]) -> str:
@@ -50,8 +60,7 @@ def render_json(records: Sequence[dict]) -> str:
     The output is a single parseable line: one JSON array whose
     elements are the records verbatim (SPEC §3 FR-08 line 182).
     """
-    canonical = _canonicalise(records)
-    return json.dumps(canonical, ensure_ascii=False)
+    return json.dumps(_as_dicts(records), ensure_ascii=False)
 
 
 def render_csv(records: Sequence[dict]) -> str:
@@ -66,18 +75,21 @@ def render_csv(records: Sequence[dict]) -> str:
     """
     if not records:
         return ""
-    canonical = _canonicalise(records)
-    fieldnames = list(canonical[0].keys())
+    rows = _as_dicts(records)
     buffer = io.StringIO()
     writer = csv.DictWriter(
         buffer,
-        fieldnames=fieldnames,
+        fieldnames=_field_order(rows),
         quoting=csv.QUOTE_MINIMAL,
     )
     writer.writeheader()
-    for record in canonical:
-        writer.writerow(record)
+    writer.writerows(rows)
     return buffer.getvalue()
+
+
+def _md_cell(value: object) -> str:
+    """Render one Markdown table cell; `None` becomes the empty cell."""
+    return "" if value is None else str(value)
 
 
 def render_md(records: Sequence[dict]) -> str:
@@ -88,15 +100,34 @@ def render_md(records: Sequence[dict]) -> str:
     """
     if not records:
         return ""
-    canonical = _canonicalise(records)
-    headers = list(canonical[0].keys())
-    lines: List[str] = []
-    lines.append("| " + " | ".join(headers) + " |")
-    lines.append("|" + "|".join("---" for _ in headers) + "|")
-    for record in canonical:
-        cells = ["" if record.get(key) is None else str(record[key]) for key in headers]
-        lines.append("| " + " | ".join(cells) + " |")
+    rows = _as_dicts(records)
+    headers = _field_order(rows)
+
+    def as_row(cells: Sequence[str]) -> str:
+        return "| " + " | ".join(cells) + " |"
+
+    lines = [
+        as_row(headers),
+        "|" + "|".join("---" for _ in headers) + "|",
+    ]
+    lines.extend(
+        as_row([_md_cell(row.get(header)) for header in headers])
+        for row in rows
+    )
     return "\n".join(lines) + "\n"
+
+
+#: [FR-08] Renderer for each valid `--format` value.
+_RENDERERS = {
+    "json": render_json,
+    "csv": render_csv,
+    "md": render_md,
+}
+
+#: [FR-08] Valid format names (SPEC §3 FR-08 lines 181-183). Derived
+#: from `_RENDERERS` so the CLI can never accept a format that has no
+#: renderer behind it.
+VALID_FORMATS: frozenset[str] = frozenset(_RENDERERS)
 
 
 def render(records: Sequence[dict], fmt: str) -> str:
@@ -106,20 +137,16 @@ def render(records: Sequence[dict], fmt: str) -> str:
     surface a structured error (the CLI handler turns it into
     `export: unknown format` + exit 2).
     """
-    if fmt == "json":
-        return render_json(records)
-    if fmt == "csv":
-        return render_csv(records)
-    if fmt == "md":
-        return render_md(records)
-    raise ValueError(f"unknown export format: {fmt!r}")
+    try:
+        renderer = _RENDERERS[fmt]
+    except KeyError:
+        raise ValueError(f"unknown export format: {fmt!r}") from None
+    return renderer(records)
 
 
 def canonical_field_set(records: Sequence[dict]) -> List[str]:
     """[FR-08] Return the canonical field order for a non-empty list."""
-    if not records:
-        return []
-    return list(records[0].keys())
+    return _field_order(records)
 
 
 def to_records(tasks: Iterable) -> List[dict]:
@@ -127,13 +154,15 @@ def to_records(tasks: Iterable) -> List[dict]:
     to plain dicts using the `status` mirror specified by SPEC
     §3 FR-08 line 182 (the export fields mirror the stored
     `status` record).
+
+    Pydantic models are dumped in JSON mode so nested values
+    (datetimes, enums) arrive as JSON-native scalars; anything
+    already mapping-shaped is copied as-is.
     """
-    out: List[dict] = []
+    records: List[dict] = []
     for task in tasks:
         if hasattr(task, "model_dump"):
-            out.append(task.model_dump(mode="json"))
-        elif isinstance(task, dict):
-            out.append(dict(task))
+            records.append(task.model_dump(mode="json"))
         else:
-            out.append(dict(task))
-    return out
+            records.append(dict(task))
+    return records

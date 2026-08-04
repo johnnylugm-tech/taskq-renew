@@ -281,28 +281,48 @@ class PluginRegistry:
         for record in snapshot:
             if record.disabled:
                 continue
-            if hook_name not in record.hooks:
+            # `module` is bound here (rather than dereferenced inside
+            # `_call_hook`) so the "a record with hooks always carries an
+            # imported module" invariant is enforced at the dispatch
+            # boundary instead of being left implicit. `_resolve_spec`
+            # only populates `hooks` after `record.module` is assigned,
+            # so `module is None` implies `hooks` is empty and the
+            # second disjunct would have skipped the record anyway; the
+            # explicit check makes that reasoning checkable rather than
+            # relying on a cross-method invariant a reader must
+            # reconstruct.
+            module = record.module
+            if module is None or hook_name not in record.hooks:
                 continue
-            self._call_hook(record, hook_name, task, result, task_id, correlation_id)
+            self._call_hook(
+                record, module, hook_name, task, result, task_id, correlation_id
+            )
 
     def _call_hook(
         self,
         record: PluginRecord,
+        module: Any,
         hook_name: str,
         task,
         result,
         task_id: str,
         correlation_id: str,
     ) -> None:
-        """[FR-07] Invoke one hook with attempt-counter bookkeeping."""
+        """[FR-07] Invoke one hook with attempt-counter bookkeeping.
+
+        `module` is the already-narrowed module object resolved by
+        `_invoke_phase`; taking it as a parameter keeps this method free
+        of the `Optional` dereference that `record.module` would
+        otherwise require.
+        """
         with self._lock:
             if record.disabled:
                 return
             try:
                 if hook_name == "pre_run":
-                    record.module.pre_run(task)
+                    module.pre_run(task)
                 else:
-                    record.module.post_run(task, result)
+                    module.post_run(task, result)
             except Exception as exc:  # noqa: BLE001 — NFR-03: record
                 record.consecutive_failures += 1
                 self._audit_plugin_event(

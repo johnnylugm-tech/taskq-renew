@@ -1,22 +1,27 @@
 {
-  "classified_at": "2026-08-03T21:01:00Z",
+  "classified_at": "2026-08-04T10:13:52Z",
   "cli_tools": [
     "bandit",
     "click",
     "coverage",
+    "git",
     "lint-imports",
     "make",
     "mutmut",
+    "pip",
     "pip-licenses",
     "pydantic",
+    "pyright",
     "pytest",
     "pytest_benchmark",
     "pytest_cov",
     "python3",
     "python3.11",
-    "radon"
+    "radon",
+    "ruff",
+    "scancode-toolkit"
   ],
-  "enforcer_sha": "100cda594c57a2ad72030b4f7a4d58a395504a3e",
+  "enforcer_sha": "4be31a55961c4daecbb8edd4f875e9e7b2724f7f-dirty",
   "env_vars": {
     "dev_opt_in": [],
     "has_default": [
@@ -40,5 +45,5 @@
     "required": []
   },
   "schema_version": 1,
-  "source_sha256": "db3b886c49aff10e64973a0ee7f960fbdfbc18e6433b3a597f65cc04b9859a69"
+  "source_sha256": "9751879062557066ab429e241fabe217549ef817fc66d5f44df449ef419f3654"
 }

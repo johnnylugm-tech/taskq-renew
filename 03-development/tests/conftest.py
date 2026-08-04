@@ -37,6 +37,18 @@ class _LiveEnv(dict):
         super().__init__()
         self._overrides: dict = dict(overrides)
 
+    def __setitem__(self, key: str, value: str) -> None:
+        # Mirror assignment into the overrides surface so that
+        # `subprocess.run(env=child_env)` — which iterates the dict via
+        # `__iter__` and reads values via `__getitem__` — actually
+        # observes assignments made after fixture resolution
+        # (e.g. `child_env["TASKQ_TASK_TIMEOUT"] = "1"`).
+        # Default `dict.__setitem__` would stash the value in the
+        # underlying storage, where `__iter__` (which yields overrides
+        # + os.environ) would never surface it, breaking fixture-style
+        # env merges like FR-02/FR-05.
+        self._overrides[key] = value
+
     def items(self) -> Iterator[tuple]:
         env = os.environ.copy()
         for key, value in self._overrides.items():
@@ -63,6 +75,25 @@ class _LiveEnv(dict):
 
     def __len__(self) -> int:
         return len(set(self._overrides) | set(os.environ.keys()))
+
+    def keys(self) -> Iterator[str]:
+        # `dict(**env)` and `{**env, ...}` both delegate to `keys()`.
+        # Default `dict.keys()` returns the underlying-storage view,
+        # which is empty for `_LiveEnv` (everything lives in
+        # `_overrides` + `os.environ`). Mirror the `__iter__` surface
+        # so fixture-style env merges like `timeout_env = {**child_env,
+        # "TASKQ_TASK_TIMEOUT": "1"}` in FR-05 actually carry
+        # PYTHONPATH + TASKQ_HOME into the spawned subprocess.
+        return self.__iter__()
+
+    def values(self) -> Iterator[str]:
+        for key in self.__iter__():
+            yield self[key]
+
+    def get(self, key: str, default=None):
+        if key in self._overrides:
+            return self._overrides[key]
+        return os.environ.get(key, default)
 
 
 @pytest.fixture(autouse=True)

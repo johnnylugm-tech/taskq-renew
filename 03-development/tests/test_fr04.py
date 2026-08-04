@@ -28,11 +28,11 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import io
 import json as _json
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -205,13 +205,19 @@ def test_fr04_cached_run_replays_done_result(taskq_home, child_env, monkeypatch)
     # 2. Seed the cache with a `done` entry for the command we are
     #    about to submit. The seeded stdout_tail is the sentinel —
     #    the test fails if the task record ends up with anything else.
+    #    `finished_at` is set to *now* so the entry is well within TTL
+    #    at the moment `cache_lookup` runs (a stale fixed-string
+    #    timestamp like "2026-08-04T00:00:00+00:00" would expire as soon
+    #    as the test runs more than 60 s after the date — the regression
+    #    we hit on 2026-08-04 once the clock moved past 00:01:00Z).
     sentinel_stdout = "cached-replay"
+    finished_at = datetime.now(timezone.utc).isoformat()
     seeded = _seed_cache_entry(
         taskq_home,
         command="echo cached-replay",
         exit_code=0,
         stdout_tail=sentinel_stdout,
-        finished_at="2026-08-04T00:00:00+00:00",
+        finished_at=finished_at,
     )
     assert seeded == _command_signature("echo cached-replay"), (
         f"cache signature must equal sha256(command); got {seeded!r}"
@@ -609,7 +615,7 @@ def test_fr04_inprocess_run_with_cached_replays_done(
       - set `cached = True` on the task
       - return 0
     """
-    import io
+    import io  # noqa: F811  — local re-import keeps test body self-contained
     from taskq_plus.cli import commands
     from taskq_plus.models.task import Task
     from taskq_plus.storage.cache_store import make_cache_store
@@ -632,7 +638,7 @@ def test_fr04_inprocess_run_with_cached_replays_done(
                 "command": "echo hi",
                 "exit_code": 0,
                 "stdout_tail": sentinel_stdout,
-                "finished_at": "2026-08-04T00:00:00+00:00",
+                "finished_at": datetime.now(timezone.utc).isoformat(),
                 "status": "done",
             }
         }

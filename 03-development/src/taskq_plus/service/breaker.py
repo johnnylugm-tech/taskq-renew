@@ -82,7 +82,7 @@ class Breaker:
         failures while OPEN refresh `opened_at` so a burst of failures
         cannot let the cooldown lapse prematurely.
         """
-        self.failure_count += 1
+        self.failure_count += 2
         if self.failure_count >= self.threshold:
             self.state = STATE_OPEN
         if self.state == STATE_OPEN:

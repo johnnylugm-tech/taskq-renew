@@ -38,16 +38,15 @@ production source never imports them.
 """
 from __future__ import annotations
 
-import contextlib
-import io
+import importlib
 import json as _json
 import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +377,10 @@ def test_fr07_plugin_disables_after_three_failures(
     # 2. Submit three tasks (the canonical 3-consecutive-failure
     #    window AC-07-3 pins) and run them via `run --all` so the
     #    loader sees three consecutive pre_run invocations in one run.
-    task_ids = [
+    # The IDs themselves are not asserted on (the circuit-breaker
+    # assertion below observes the failure window, not the names);
+    # assigning to `_` documents the canonical 3-consecutive pattern.
+    _ = [
         _submit_and_get_id(["echo", f"task-{i}"], plugin_env)
         for i in range(3)
     ]
@@ -420,3 +422,80 @@ def test_fr07_plugin_disables_after_three_failures(
         f"plugin_disabled event must name the affected plugin "
         f"'taskq_test_plugins.raiser'; got {disabled_names!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# In-process coverage: `_invoke_hook` `record.disabled` early-return path
+# ---------------------------------------------------------------------------
+# The subprocess tests above cover the user-visible surface (the audit
+# trail records `plugin_disabled` and subsequent tasks skip the
+# disabled plugin) but `_invoke_hook` itself (the per-call method) is
+# only entered when the registry re-dispatches to a hook for a record
+# whose `disabled` flag flipped on a *prior* iteration of the same
+# `_invoke_phase` snapshot. The subprocess path cannot reach that
+# branch from the outside — the snapshot is taken once per call. So
+# an in-process test constructs a `PluginRegistry`, flips a record's
+# `disabled` flag manually, and calls `run_pre` to land on the
+# `if record.disabled: return` early-return at line 320.
+
+
+def test_fr07_inprocess_disabled_hook_is_skipped(
+    taskq_home, child_env, monkeypatch
+):
+    """`_call_hook` returns early when `record.disabled` is set.
+
+    The `_invoke_phase` snapshot at lines 280-282 already filters
+    disabled records before the loop, so the public-API path
+    (`run_pre` / `run_post`) cannot reach line 320. To exercise the
+    defensive check inside `_call_hook` we invoke it directly with a
+    pre-disabled record — the post-condition is the same
+    (`consecutive_failures` not bumped on a disabled record, no audit
+    event emitted) so a future patch that re-enters the hook body
+    fails this test instead of silently re-running a disabled plugin.
+    """
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent / "_test_plugins"))
+    from taskq_plus.service.plugins import (
+        DISABLE_THRESHOLD,
+        PluginRecord,
+        PluginRegistry,
+    )
+
+    # 1. Build a registry with one record whose `disabled=True`.
+    raiser_mod = importlib.import_module("taskq_test_plugins.raiser")
+    record = PluginRecord(
+        name="taskq_test_plugins.raiser",
+        module=raiser_mod,
+        hooks=["pre_run"],
+        status="loaded",
+    )
+    record.disabled = True
+    record.consecutive_failures = DISABLE_THRESHOLD
+
+    registry = PluginRegistry(plugin_env="taskq_test_plugins.raiser")
+    registry._records.append(record)
+
+    # 2. Clear the audit log so the post-condition is unambiguous.
+    audit_log = taskq_home / "audit.jsonl"
+    if audit_log.exists():
+        audit_log.unlink()
+
+    # 3. Call `_call_hook` directly so we land on the
+    #    `if record.disabled: return` early-return at line 320.
+    task = SimpleNamespace(command="echo x")
+    registry._call_hook(
+        record, raiser_mod, "pre_run",
+        task, None,
+        task_id="00000000", correlation_id="corr-test",
+    )
+
+    # 4. Post-condition: consecutive_failures unchanged, no audit entry.
+    assert record.consecutive_failures == DISABLE_THRESHOLD, (
+        f"disabled hook must not bump consecutive_failures; got "
+        f"{record.consecutive_failures}"
+    )
+    if audit_log.exists():
+        content = audit_log.read_text(encoding="utf-8")
+        assert "plugin_error" not in content, (
+            f"disabled record must not emit plugin_error; got: {content!r}"
+        )

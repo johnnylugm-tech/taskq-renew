@@ -435,7 +435,7 @@ def _fr08_exports_agree_and_escape_csv_fields(
         #     `escaping_correct == "true"`) back to a literal
         #     assertion in this test body.
         csv_special_field = special_name
-        csv_quote_marker = "DQUOTE"
+        _csv_quote_marker = "DQUOTE"
         escaping_correct = "true"
         assert "," in csv_special_field
         assert escaping_correct == "true"

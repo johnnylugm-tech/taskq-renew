@@ -212,9 +212,15 @@ def test_fr02_source_contains_no_shell_true():
     Out-of-process decision: the AC literally invokes `grep` as a
     subprocess; the test reproduces that exactly so the gate runs
     against the same line-by-line scan CI will run.
+
+    CWD independence: mutmut's baseline test run executes pytest from a
+    temp workdir where the literal SPEC path ``03-development/src/``
+    does not exist. Resolve the source root from ``__file__`` so the
+    scan stays anchored to ``03-development/src/`` regardless of cwd.
     """
+    src_root = Path(__file__).resolve().parent.parent / "src"
     proc = subprocess.run(
-        ["grep", "-rn", "--", "shell=True", "03-development/src/"],
+        ["grep", "-rn", "--", "shell=True", str(src_root)],
         capture_output=True,
         text=True,
     )
@@ -224,7 +230,7 @@ def test_fr02_source_contains_no_shell_true():
         f"stderr={proc.stderr!r}"
     )
     assert proc.stdout == "", (
-        f"shell=True must not appear in 03-development/src/; got:\n"
+        f"shell=True must not appear in {src_root}; got:\n"
         f"{proc.stdout!r}"
     )
 

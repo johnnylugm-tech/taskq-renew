@@ -486,42 +486,42 @@ the D4 spec-coverage percentage measures only integration-level cases.
 
 | # | NFR | Test Function | Layer | Title |
 |---|---|---|---|---|
-| 1 | NFR-02 | `test_nfr02_forbidden_execution_patterns_absent` | static | grep gate: zero `shell=True` / `eval(` / `exec(` hits |
-| 2 | NFR-02 | `test_nfr02_injection_semicolon_rejected` | unit | injection blacklist — semicolon |
-| 3 | NFR-02 | `test_nfr02_injection_pipe_rejected` | unit | injection blacklist — pipe |
-| 4 | NFR-02 | `test_nfr02_injection_ampersand_rejected` | unit | injection blacklist — ampersand |
-| 5 | NFR-02 | `test_nfr02_injection_dollar_rejected` | unit | injection blacklist — dollar |
-| 6 | NFR-02 | `test_nfr02_injection_greater_than_rejected` | unit | injection blacklist — greater-than |
-| 7 | NFR-02 | `test_nfr02_injection_less_than_rejected` | unit | injection blacklist — less-than |
-| 8 | NFR-02 | `test_nfr02_injection_backtick_rejected` | unit | injection blacklist — backtick |
-| 9 | NFR-02 | `test_nfr02_bandit_has_no_high_or_medium_findings` | static | bandit: 0 HIGH / 0 MEDIUM |
-| 10 | NFR-02 | `test_nfr02_plugin_allowlist_rejects_path_module` | unit | plugin name allowlist regex |
-| 11 | NFR-03 | `test_nfr03_exception_handling_scan_has_no_swallowing` | static | `ast-error-handling`: no bare/broad except |
-| 12 | NFR-04 | `test_nfr04_token_secret_is_redacted` | unit | `token=` pattern redaction |
-| 13 | NFR-04 | `test_nfr04_bearer_secret_is_redacted` | unit | `Bearer` pattern redaction |
-| 14 | NFR-05 | `test_nfr05_public_api_docstrings_are_complete` | static | `ast-docstrings` 100% public coverage |
-| 15 | NFR-05 | `test_nfr05_public_docstrings_include_requirement_tags` | static | every public docstring carries an FR/NFR tag |
-| 16 | NFR-06 | `test_nfr06_import_linter_passes` | static | `lint-imports` exit 0 |
-| 17 | NFR-06 | `test_nfr06_layer_contract_and_config_independence_declared` | static | `.importlinter` declares the 5-layer contract |
-| 18 | NFR-06 | `test_nfr06_crg_cohesion_setting_remains_default` | static | CRG calibration pin unchanged |
-| 19 | NFR-07 | `test_nfr07_runtime_requirements_are_exactly_pinned` | static | `requirements.txt` uses `==` only |
-| 20 | NFR-07 | `test_nfr07_installed_dependency_licenses_are_allowlisted` | static | MIT / BSD-2 / BSD-3 / Apache-2.0 only |
-| 21 | NFR-07 | `test_nfr07_sbom_exists_with_required_dependency_fields` | static | `08-config/SBOM.json` name/version/license |
-| 22 | NFR-08 | `test_nfr08_mutation_testing_feature_is_enabled` | static | `features.mutation_testing == true` |
-| 23 | NFR-08 | `test_nfr08_mutation_score_meets_seventy_percent` | static | mutation score >= 70 |
-| 24 | NFR-08 | `test_nfr08_mutation_scope_has_execution_budget_rationale` | static | scope + budget rationale documented |
-| 25 | NFR-09 | `test_nfr09_full_suite_has_zero_skipped_tests` | static | pytest skipped count == 0 |
-| 26 | NFR-09 | `test_nfr09_every_test_has_an_assertion` | static | `ast-assertions` zero_assert == 0 |
-| 27 | NFR-09 | `test_nfr09_pytest_skip_calls_are_absent` | static | no functional `pytest.skip` |
-| 28 | NFR-09 | `test_nfr09_skip_markers_are_absent` | static | no functional `pytest.mark.skip` |
-| 29 | NFR-09 | `test_nfr09_skipif_markers_are_absent` | static | no functional `skipif` |
-| 30 | NFR-09 | `test_nfr09_xfail_markers_are_absent` | static | no functional `xfail` |
-| 31 | NFR-09 | `test_nfr09_harness_does_not_exclude_tests` | static | no `--ignore` / `--deselect` / `collect_ignore` |
-| 32 | NFR-09 | `test_nfr09_verified_rows_have_passing_test_evidence` | static | every VERIFIED matrix row has real evidence |
-| 33 | NFR-11 | `test_nfr11_maintainability_index_meets_eighty` | static | mean MI >= 80 |
-| 34 | NFR-11 | `test_nfr11_function_complexity_is_at_most_ten` | static | cyclomatic complexity <= 10 |
-| 35 | NFR-11 | `test_nfr11_source_files_are_at_most_four_hundred_lines` | static | file length <= 400 lines |
-| 36 | NFR-11 | `test_nfr11_source_directories_have_at_most_fifteen_files` | static | directory fan-out <= 15 files |
+| 1 | `test_nfr02_forbidden_execution_patterns_absent` | NFR-02 | static | grep gate: zero `shell=True` / `eval(` / `exec(` hits |
+| 2 | `test_nfr02_injection_semicolon_rejected` | NFR-02 | unit | injection blacklist — semicolon |
+| 3 | `test_nfr02_injection_pipe_rejected` | NFR-02 | unit | injection blacklist — pipe |
+| 4 | `test_nfr02_injection_ampersand_rejected` | NFR-02 | unit | injection blacklist — ampersand |
+| 5 | `test_nfr02_injection_dollar_rejected` | NFR-02 | unit | injection blacklist — dollar |
+| 6 | `test_nfr02_injection_greater_than_rejected` | NFR-02 | unit | injection blacklist — greater-than |
+| 7 | `test_nfr02_injection_less_than_rejected` | NFR-02 | unit | injection blacklist — less-than |
+| 8 | `test_nfr02_injection_backtick_rejected` | NFR-02 | unit | injection blacklist — backtick |
+| 9 | `test_nfr02_bandit_has_no_high_or_medium_findings` | NFR-02 | static | bandit: 0 HIGH / 0 MEDIUM |
+| 10 | `test_nfr02_plugin_allowlist_rejects_path_module` | NFR-02 | unit | plugin name allowlist regex |
+| 11 | `test_nfr03_exception_handling_scan_has_no_swallowing` | NFR-03 | static | `ast-error-handling`: no bare/broad except |
+| 12 | `test_nfr04_token_secret_is_redacted` | NFR-04 | unit | `token=` pattern redaction |
+| 13 | `test_nfr04_bearer_secret_is_redacted` | NFR-04 | unit | `Bearer` pattern redaction |
+| 14 | `test_nfr05_public_api_docstrings_are_complete` | NFR-05 | static | `ast-docstrings` 100% public coverage |
+| 15 | `test_nfr05_public_docstrings_include_requirement_tags` | NFR-05 | static | every public docstring carries an FR/NFR tag |
+| 16 | `test_nfr06_import_linter_passes` | NFR-06 | static | `lint-imports` exit 0 |
+| 17 | `test_nfr06_layer_contract_and_config_independence_declared` | NFR-06 | static | `.importlinter` declares the 5-layer contract |
+| 18 | `test_nfr06_crg_cohesion_setting_remains_default` | NFR-06 | static | CRG calibration pin unchanged |
+| 19 | `test_nfr07_runtime_requirements_are_exactly_pinned` | NFR-07 | static | `requirements.txt` uses `==` only |
+| 20 | `test_nfr07_installed_dependency_licenses_are_allowlisted` | NFR-07 | static | MIT / BSD-2 / BSD-3 / Apache-2.0 only |
+| 21 | `test_nfr07_sbom_exists_with_required_dependency_fields` | NFR-07 | static | `08-config/SBOM.json` name/version/license |
+| 22 | `test_nfr08_mutation_testing_feature_is_enabled` | NFR-08 | static | `features.mutation_testing == true` |
+| 23 | `test_nfr08_mutation_score_meets_seventy_percent` | NFR-08 | static | mutation score >= 70 |
+| 24 | `test_nfr08_mutation_scope_has_execution_budget_rationale` | NFR-08 | static | scope + budget rationale documented |
+| 25 | `test_nfr09_full_suite_has_zero_skipped_tests` | NFR-09 | static | pytest skipped count == 0 |
+| 26 | `test_nfr09_every_test_has_an_assertion` | NFR-09 | static | `ast-assertions` zero_assert == 0 |
+| 27 | `test_nfr09_pytest_skip_calls_are_absent` | NFR-09 | static | no functional `pytest.skip` |
+| 28 | `test_nfr09_skip_markers_are_absent` | NFR-09 | static | no functional `pytest.mark.skip` |
+| 29 | `test_nfr09_skipif_markers_are_absent` | NFR-09 | static | no functional `skipif` |
+| 30 | `test_nfr09_xfail_markers_are_absent` | NFR-09 | static | no functional `xfail` |
+| 31 | `test_nfr09_harness_does_not_exclude_tests` | NFR-09 | static | no `--ignore` / `--deselect` / `collect_ignore` |
+| 32 | `test_nfr09_verified_rows_have_passing_test_evidence` | NFR-09 | static | every VERIFIED matrix row has real evidence |
+| 33 | `test_nfr11_maintainability_index_meets_eighty` | NFR-11 | static | mean MI >= 80 |
+| 34 | `test_nfr11_function_complexity_is_at_most_ten` | NFR-11 | static | cyclomatic complexity <= 10 |
+| 35 | `test_nfr11_source_files_are_at_most_four_hundred_lines` | NFR-11 | static | file length <= 400 lines |
+| 36 | `test_nfr11_source_directories_have_at_most_fifteen_files` | NFR-11 | static | directory fan-out <= 15 files |
 
 ---
 

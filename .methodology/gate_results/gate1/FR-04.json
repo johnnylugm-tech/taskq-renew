@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 5,
-  "fr_id": "FR-04",
+  "fr_id": "FR-08",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,84 +9,23 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed! (ruff exit 0, 0 violations on 03-development/src/ with --extend-ignore RUF001,RUF002,RUF003)"
+      "tool_evidence": "All checks passed!"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785898902394\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
+      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785908372406\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.706\n    }\n}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 21,
+      "tests_passed": 291,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "21 passed in 2.62s. coverage json: cache.py 100% (44/44 lines, 100% statements), cache_store.py 100% (29/29 lines, 100% statements). totals: covered_lines=73, num_statements=73, percent_covered=100.0. All 3/3 spec-required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution. 0 failed, 0 skipped."
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pyte\n...\n============================= 291 passed in 11.40s =============================\n[coverage totals: 100.0% of 464 st"
     },
     "architecture_constraints": {
-      "score": 100.0,
-      "threshold": 100,
-      "framework_override": true,
-      "tool_output": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "tool_evidence": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0 with PYTHONPATH=03-development/src."
-    }
-  },
-  "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
-  "enforcer_surface": {
-    "core/quality_gate": "88d4ab41d48bbd3aa1224cbcdd6d5a6be780dc08",
-    "harness/harness_bridge.py": "92bca94bdae19024ad1c2ad97c50a1d645dcf25d",
-    "harness/gate_configs": "8735bb31aaa3bd32117548e651ec1c605a255f10"
-  },
-  "evidence_digest": {
-    "mutation_testing::setup.cfg": {
-      "source": "setup.cfg (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
-      "bytes": 1380,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
-    },
-    "test_coverage::pytest.ini": {
-      "source": "pytest.ini (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "4e8ec2d8bd881cfc17c027f3fb8c69d1a7a5a11229b99f6d111aac74c5fc6714",
-      "bytes": 589,
-      "head": "[pytest]\n# The harness vendored under `harness/` carries its own test suite\n# (`harness/tests/`) which imports `harness_cli` and crashes on\n# Python <3.10 with `SystemExit(1)`. When the gate's cross-validation\n# invokes `pytest {root}` for `pytest-benchmark` (or any test-family\n# tool that takes the project root as a path), pytest would otherwise\n# discover the harness tests alongside the project tests and abort\n# collection. Keep the harness suite out of root-level pytest runs.\naddopts =\n    --ignore=harness/tests\n    --ignore=harness/tests-cli\ntestpaths =\n    03-development/tests"
-    },
-    "test_coverage::setup.cfg": {
-      "source": "setup.cfg (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
-      "bytes": 1380,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
-    },
-    "linting": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "daab65e2b6d157c378b25c3aace21a9dba9d9b7497908893fe28fcf30f04ef96",
-      "bytes": 111,
-      "head": "All checks passed! (ruff exit 0, 0 violations on 03-development/src/ with --extend-ignore RUF001,RUF002,RUF003)"
-    },
-    "type_safety": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "a51f2f594a54eaa3e70d4efe7d674619e9b4a9ca704050f30c2de92eb4bfe01b",
-      "bytes": 186,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785898902394\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
-    },
-    "test_coverage": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "f3e25b905a1e6e26cc0e8457ee0a860c10408f576db5150e429a8f7edfba3f94",
-      "bytes": 410,
-      "head": "21 passed in 2.62s. coverage json: cache.py 100% (44/44 lines, 100% statements), cache_store.py 100% (29/29 lines, 100% statements). totals: covered_lines=73, num_statements=73, percent_covered=100.0. All 3/3 spec-required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution. 0 failed, 0 skipped."
-    },
-    "architecture_constraints": {
-      "source": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "kind": "file",
-      "sha256": "7ac4bde5fda0f1939d01dac7db6bf5be0e71052c11bafe2b0a3267d34482aed8",
-      "bytes": 924,
-      "head": "\n╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐\n╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │\n ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗\n ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝\n╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║\n╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝\n  └──▶║║                    ▲ \n      ╚╝────────────────────┘\n\n\n---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT"
+      "score": 100.0
     }
   },
   "composite_score": 100.0,

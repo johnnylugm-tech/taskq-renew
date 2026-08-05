@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 5,
-  "fr_id": "FR-04",
+  "fr_id": "FR-08",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -14,77 +14,18 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785908239359\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.639}}"
+      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785908372406\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.706\n    }\n}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 21,
+      "tests_passed": 291,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "21 passed in 2.63s\n03-development/src/taskq_plus/service/cache.py            44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py      29      0   100%\nTOTAL                                                     73      0   100%\n21 passed, 0 failed, 0 skipped"
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pyte\n...\n============================= 291 passed in 11.40s =============================\n[coverage totals: 100.0% of 464 st"
     },
     "architecture_constraints": {
-      "score": 100.0,
-      "threshold": 100,
-      "tool_evidence": "Analyzed 23 files, 30 dependencies. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. Contracts: 4 kept, 0 broken."
-    }
-  },
-  "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
-  "enforcer_surface": {
-    "core/quality_gate": "2429c856619c1f8afb3c0ff6e09c27f5e4765e0c",
-    "harness/harness_bridge.py": "92bca94bdae19024ad1c2ad97c50a1d645dcf25d",
-    "harness/gate_configs": "8735bb31aaa3bd32117548e651ec1c605a255f10"
-  },
-  "evidence_digest": {
-    "mutation_testing::setup.cfg": {
-      "source": "setup.cfg (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
-      "bytes": 1380,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
-    },
-    "test_coverage::pytest.ini": {
-      "source": "pytest.ini (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "4e8ec2d8bd881cfc17c027f3fb8c69d1a7a5a11229b99f6d111aac74c5fc6714",
-      "bytes": 589,
-      "head": "[pytest]\n# The harness vendored under `harness/` carries its own test suite\n# (`harness/tests/`) which imports `harness_cli` and crashes on\n# Python <3.10 with `SystemExit(1)`. When the gate's cross-validation\n# invokes `pytest {root}` for `pytest-benchmark` (or any test-family\n# tool that takes the project root as a path), pytest would otherwise\n# discover the harness tests alongside the project tests and abort\n# collection. Keep the harness suite out of root-level pytest runs.\naddopts =\n    --ignore=harness/tests\n    --ignore=harness/tests-cli\ntestpaths =\n    03-development/tests"
-    },
-    "test_coverage::setup.cfg": {
-      "source": "setup.cfg (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
-      "bytes": 1380,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
-    },
-    "linting": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
-      "bytes": 18,
-      "head": "All checks passed!"
-    },
-    "type_safety": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "bdaa01eb24e114c9e99b66e0fcfd77773e0f451ffd4eabfaec550250135fef34",
-      "bytes": 186,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785908239359\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.639}}"
-    },
-    "test_coverage": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "fe35ac7df6d9309327b89a5fee3d66b22c1daf7c6e8c3247d17cac610962b592",
-      "bytes": 274,
-      "head": "21 passed in 2.63s\n03-development/src/taskq_plus/service/cache.py            44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py      29      0   100%\nTOTAL                                                     73      0   100%\n21 passed, 0 failed, 0 skipped"
-    },
-    "architecture_constraints": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "97128a292b6224e18b983bab36f8e599b35cbd7e8d40f1a6154e7e92c0751508",
-      "bytes": 184,
-      "head": "Analyzed 23 files, 30 dependencies. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. Contracts: 4 kept, 0 broken."
+      "score": 100.0
     }
   },
   "composite_score": 100.0,

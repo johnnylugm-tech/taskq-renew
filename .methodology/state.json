@@ -29,6 +29,6 @@
   },
   "test_inventory_checksum": "90bfbc035f4772f9c477a2f87e7c2e58211b91fe0b7b9d71a3eeea9a0fecf375",
   "phase_truth_passed": true,
-  "last_milestone_command": "push-milestone --type p3-pre-gate2",
-  "last_milestone_at": "2026-08-04T02:30:17.023928+00:00"
+  "last_milestone_command": "push-milestone --type p3-post-gate2",
+  "last_milestone_at": "2026-08-05T00:32:57.621159+00:00"
 }

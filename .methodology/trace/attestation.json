@@ -1,7 +1,7 @@
 {
   "schema": "harness/traceability/attestation/v1",
-  "git_sha": "6dacde7474e5ad9c679f6f24f0e2ee964b3cc2c7",
-  "content_sha256": "01411ef0a87029b84753876d78ddb2c2b0f7046d1d22ae6a15c4e80b18ab3243",
+  "git_sha": "7947fa6d4034e08f4e55a3912e62b0e74c80352f",
+  "content_sha256": "3013d0f0218d185eab9fd6d060a81227876f15a3b5348ec10bab24485e7f9801",
   "tool": "scripts/build_trace_attestation.py",
   "overlay_used": null,
   "overlay_errors": [],
@@ -14,7 +14,7 @@
       "code_coverage": "100.0%",
       "test_coverage": "100.0%",
       "verification_rate": "100.0%",
-      "total_links": 79,
+      "total_links": 48,
       "missing_mappings": {
         "fr_without_srs": [],
         "fr_without_code": [],
@@ -32,14 +32,6 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/__init__.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/__main__.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/__init__.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/config.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/models/__init__.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/models/task.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/storage/task_store.py",
           "03-development/src/taskq_plus/__init__.py",
           "03-development/src/taskq_plus/__main__.py",
           "03-development/src/taskq_plus/cli/__init__.py",
@@ -60,11 +52,6 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/models/errors.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/__init__.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/executor.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/storage/task_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/models/errors.py",
           "03-development/src/taskq_plus/service/__init__.py",
@@ -82,10 +69,6 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/breaker.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/executor.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/storage/breaker_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/breaker.py",
           "03-development/src/taskq_plus/service/executor.py",
@@ -102,9 +85,6 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/cache.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/storage/cache_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/cache.py",
           "03-development/src/taskq_plus/storage/cache_store.py"
@@ -120,8 +100,6 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/main.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/cli/main.py"
         ],
@@ -136,8 +114,6 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/dag.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/dag.py"
         ],
@@ -152,8 +128,6 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/service/plugins.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/plugins.py"
         ],
@@ -168,11 +142,6 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/commands.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/cli/main.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/observability/__init__.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/observability/audit.py",
-          ".claude/worktrees/agent-a84278abd366cae74/03-development/src/taskq_plus/observability/export.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/cli/main.py",
           "03-development/src/taskq_plus/observability/__init__.py",

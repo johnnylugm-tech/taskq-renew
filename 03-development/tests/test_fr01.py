@@ -1120,6 +1120,22 @@ def test_fr01_export_empty_store_emits_no_rows(taskq_home):
     assert stdout == ""
 
 
+# NFR-09
+def test_fr01_export_invalid_format_returns_two(taskq_home):
+    """`export --format <bogus>` is rejected by argparse; the handler
+    swallows `SystemExit` and returns the integer code (2) so in-process
+    callers can assert on the return value rather than rescuing the
+    exception. Covers commands.py lines 905-913 (the `except SystemExit`
+    branch of `export`).
+    """
+    from taskq_plus.cli import commands
+
+    exit_code, stdout, stderr = _capture(commands.export, ["--format", "xml"])
+
+    assert exit_code == 2
+    assert stdout == ""
+
+
 # ---------------------------------------------------------------------------
 # graph — FR-05/FR-06 dependency-graph inspection
 # ---------------------------------------------------------------------------

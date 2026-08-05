@@ -1,37 +1,33 @@
 {
   "gate": 1,
-  "phase": 7,
-  "fr_id": "FR-03",
-  "overall_score": 93.65,
+  "phase": 8,
+  "fr_id": "FR-07",
+  "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
   "breakdown": {
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_output": ".sessi-work/round_1/tools/linting.txt",
       "tool_evidence": "All checks passed!"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_output": ".sessi-work/round_1/tools/type_safety.txt",
-      "tool_evidence": "{\"version\":\"1.1.409\",\"time\":\"1785916020996\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.672}}"
+      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785919219388\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.673\n    }\n}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tool_output": ".sessi-work/round_1/tools/test_coverage.txt",
-      "tests_passed": 89,
+      "tests_passed": 322,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================== 89 passed in 5.72s ==============================\nCoverage totals: percent_covered=81.33 (covered_lines=122, num_statements=150)\nFR-03 modules: breaker.py=93.75%, executor.py=66.18%, breaker_store.py=94.0%\nSpec coverage: 5/5 required test functions present (100%)"
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 322 items\n\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n\n============================= 322 passed in 11.10s ============================="
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_output": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "tool_evidence": "PYTHONPATH=03-development/src lint-imports: Analyzed 23 files, 30 dependencies. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. Contracts: 4 kept, 0 broken. EXIT_CODE=0"
+      "tool_evidence": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT."
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -63,32 +59,25 @@
       "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[tool:pytest]\n# The harness's mutation-test workdir only copies setup.cfg (not pytest.ini),\n# so the framework's promotion (mutation_enforcer.py:388-424) rewrites this\n# entry to an absolute path that pytest can resolve inside its temp dir.\n# Without it mutmut's baseline test-suite run fails collection with\n# `ModuleNotFoundError: taskq_plus` because no `from taskq_plus...` import\n# can be resolved at collection time.\n#"
     },
     "linting": {
-      "source": ".sessi-work/round_1/tools/linting.txt",
-      "kind": "file",
-      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
-      "bytes": 19,
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
+      "bytes": 18,
       "head": "All checks passed!"
     },
     "type_safety": {
-      "source": ".sessi-work/round_1/tools/type_safety.txt",
-      "kind": "file",
-      "sha256": "2c020c756d9ed506ac269ee92eb532be566165b2aa4681ab65aa998081e369a6",
-      "bytes": 252,
-      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785916059485\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.642\n    }\n}\n"
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "78cbda48fb3cc2443cd22f6ec5e66d451d75f06f40d22fc030f85bdb9313fc2d",
+      "bytes": 250,
+      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785919219388\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.673\n    }\n}"
     },
     "test_coverage": {
-      "source": ".sessi-work/round_1/tools/test_coverage.txt",
-      "kind": "file",
-      "sha256": "751c446569e2e0c25f0d275a7ef1b4c801a23035f43d0bf29c31d58cfd7fa155",
-      "bytes": 3026,
-      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 291 items\n\n03-development/tests/test_fr08.py ...................................... [ 13%]\n........................................                                 [ 26%]\n03-development/tests/test_fr01.py ...................................... [ 39%]\n......................................                                   [ 52%]\n03-development/tests/test_fr02.py ...................................... [ 65%]\n..........................                                               [ 74%]\n03-development/tests/test_fr05.py ...................................... [ 87%]\n............                                                             [ 92%]\n03-development/tests/test_fr07.py .......................                [100%]\n\n============================= 291 passed in 11.22s =============================\nfr04.py::test_fr04_cache_store_roundtrip_preserves_entry PASSED [ 38%]"
-    },
-    "architecture_constraints": {
-      "source": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "kind": "file",
-      "sha256": "4345f04bf1c4336a2a0a97eca7dcc621f7424ef93138dc506c9da7ffd84ad8ba",
-      "bytes": 662,
-      "head": " ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝\n╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║\n╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝\n  └──▶║║                    ▲ \n      ╚╝────────────────────┘\n\n\n---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken."
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "97a324f59f4e46f8cbb4179ffd6ab624364181e115c4266e8fc1da0a19e2baff",
+      "bytes": 1359,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 322 items\n\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n\n============================= 322 passed in 11.10s ============================="
     }
   },
   "composite_score": 100.0,

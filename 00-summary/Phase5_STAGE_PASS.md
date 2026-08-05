@@ -1,15 +1,15 @@
 # Phase 5 STAGE_PASS
 
-Generated: 2026-08-05 02:41 UTC
+Generated: 2026-08-05 03:00 UTC
 
 ## Gate Score
-Gate 1 Composite Score: **100.0**
+Gate 1 Composite Score: **98.45**
 
 ## Quality Status
-quality_complete: **True**
+quality_complete: **False**
 
 ## Deliverables
 Phase 5 deliverables verified by PhaseArtifactRegistry.
 
 ## Summary
-Phase 5 exit gate PASS.
+Phase 5 exit gate FAIL.

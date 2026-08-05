@@ -1040,3 +1040,967 @@ def test_fr02_format_validation_error_handles_empty_errors_list():
     assert msg == "validation failed", (
         f"empty-errors branch must return 'validation failed'; got {msg!r}"
     )
+
+
+# ===========================================================================
+# FR-02 path coverage extensions
+# ---------------------------------------------------------------------------
+# The sections below add in-process tests that drive the FR-02 execution
+# surface through branches not exercised by the five canonical cases
+# (cycle detection, depth cap, breaker OPEN, cache hit, _run_all layer
+# iterations, executor retry helpers). Each test targets a specific branch
+# so pytest-cov can measure the path the subprocess tests cannot.
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# `commands.submit` — cycle and depth-cap branches (FR-06 shared surface)
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_submit_rejects_cycle_with_exit_5(taskq_home):
+    """In-process: a pre-existing cycle in `tasks.json` is detected by
+    `commands.submit` (the FR-06 cycle detector is shared between `submit`
+    and `run --all`). The handler exits 5 and stderr names the cycle.
+    Covers lines 371-374.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.storage.task_store import (
+        get_store,
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    # Plant a cyclic tasks.json: A depends on B, B depends on A.
+    reset_store_cache()
+    store = make_disk_store()
+    from taskq_plus.models.task import Task
+    store.add(Task(id="aaaa0001", command="echo a", depends_on=["bbbb0002"]))
+    store.add(Task(id="bbbb0002", command="echo b", depends_on=["aaaa0001"]))
+
+    reset_store_cache()
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.submit(["echo c"], use_disk=True)
+    assert rc == 5, f"cycle submit must exit 5; got {rc}; stderr={err.getvalue()!r}"
+    stderr = err.getvalue()
+    assert "dependency cycle" in stderr, (
+        f"cycle error must say 'dependency cycle'; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_submit_rejects_chain_deeper_than_cap(
+    taskq_home, monkeypatch
+):
+    """In-process: with `TASKQ_MAX_DAG_DEPTH=2`, a third task whose
+    chain depth would be 3 is rejected by `commands.submit` with exit 5
+    and the depth-cap stderr marker.
+    Covers lines 375-382.
+    """
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "2")
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        get_store,
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(id="aaaa0001", command="echo a"))
+    store.add(Task(id="bbbb0002", command="echo b", depends_on=["aaaa0001"]))
+
+    # Third task: depth 3, exceeds cap 2 → exit 5.
+    reset_store_cache()
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.submit(
+            ["echo c", "--after", "bbbb0002"], use_disk=True
+        )
+    assert rc == 5, (
+        f"depth-cap submit must exit 5; got {rc}; stderr={err.getvalue()!r}"
+    )
+    stderr = err.getvalue()
+    assert "dependency chain too deep" in stderr, (
+        f"depth-cap error must say 'dependency chain too deep'; "
+        f"got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_max_dag_depth_unparseable_falls_back(taskq_home, monkeypatch):
+    """In-process: `_max_dag_depth()` returns `DEFAULT_MAX_DAG_DEPTH` (32)
+    when `TASKQ_MAX_DAG_DEPTH` is set to a non-integer value.
+    Covers lines 912-918.
+    """
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "not-a-number")
+    from taskq_plus.cli import commands
+
+    assert commands._max_dag_depth() == commands.DEFAULT_MAX_DAG_DEPTH, (
+        f"unparseable TASKQ_MAX_DAG_DEPTH must fall back to "
+        f"{commands.DEFAULT_MAX_DAG_DEPTH}; got {commands._max_dag_depth()!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `commands.run` — breaker OPEN and cache-hit branches
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_run_short_circuits_when_breaker_open(taskq_home):
+    """In-process: a pre-failed `breaker.json` (state=OPEN) causes
+    `commands.run` to short-circuit with exit 3 and `breaker open` on
+    stderr *before* any subprocess dispatch.
+    Covers lines 456-467.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    task = store.add(Task(command="echo hi"))
+    task_id = task.id
+
+    # Plant an OPEN breaker file at the same TASKQ_HOME.
+    (taskq_home / "breaker.json").write_text(
+        _json.dumps({
+            "state": "OPEN",
+            "failure_count": 3,
+            "opened_at": None,
+            "threshold": 3,
+            "cooldown_s": 60.0,
+        }),
+        encoding="utf-8",
+    )
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run([task_id], use_disk=True)
+    assert rc == 3, (
+        f"OPEN breaker must short-circuit run with exit 3; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+    assert "breaker open" in err.getvalue(), (
+        f"stderr must announce the breaker; got {err.getvalue()!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_run_cached_path_replays_result(taskq_home):
+    """In-process: a primed `cache.json` entry causes `commands.run` with
+    `--cached` to copy the entry into the task and exit 0 without invoking
+    the executor.
+    Covers lines 488-509.
+    """
+    from datetime import datetime, timezone
+
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.service.cache import signature as _sig
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    task = store.add(Task(command="echo hi"))
+    task_id = task.id
+
+    sig = _sig("echo hi")
+    finished_at = datetime.now(tz=timezone.utc).isoformat()
+    (taskq_home / "cache.json").write_text(
+        _json.dumps({
+            sig: {
+                "command": "echo hi",
+                "exit_code": 0,
+                "stdout_tail": "primed-cached-output\n",
+                "finished_at": finished_at,
+                "status": "done",
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run([task_id, "--cached"], use_disk=True)
+    assert rc == 0, (
+        f"`run --cached` against a primed cache must exit 0; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+
+    # Verify the on-disk record carries the cached fields.
+    reset_store_cache()
+    from taskq_plus.storage.task_store import get_store
+    store = get_store(use_disk=True)
+    cached = [t for t in store.load() if t.id == task_id][0]
+    assert cached.cached is True
+    assert cached.status == "done"
+    assert cached.stdout_tail == "primed-cached-output\n"
+
+
+# ---------------------------------------------------------------------------
+# `commands._run_all` — cycle, blocked, empty-layer, failure branches
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_run_all_returns_zero_on_cycle(taskq_home):
+    """In-process: `run --all` with a cyclic graph returns 0 without
+    dispatching any task (the `_run_all` cycle short-circuit).
+    Covers line 605.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    # Cyclic graph: A -> B -> A.
+    store.add(Task(id="aaaa0001", command="echo a", depends_on=["bbbb0002"]))
+    store.add(Task(id="bbbb0002", command="echo b", depends_on=["aaaa0001"]))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run(["--all"], use_disk=True)
+    assert rc == 0, (
+        f"run --all on a cyclic graph must exit 0; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_run_all_marks_task_blocked_on_failed_prereq(
+    taskq_home,
+):
+    """In-process: a task whose prereq ended in `failed` is marked
+    `blocked` (not executed, not counted toward the breaker) when
+    `run --all` sweeps the graph.
+    Covers lines 626-642.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        get_store,
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    # First task: a prereq that fails.
+    failed_task = store.add(Task(id="aaaa0001", command="false"))
+    # Second task: depends on the failed prereq.
+    store.add(Task(id="bbbb0002", command="echo b", depends_on=["aaaa0001"]))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run(["--all"], use_disk=True)
+    assert rc == 0, (
+        f"run --all with a failed prereq must exit 0; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+
+    # The dependent task should now be blocked.
+    reset_store_cache()
+    store = get_store(use_disk=True)
+    blocked = [t for t in store.load() if t.id == "bbbb0002"][0]
+    assert blocked.status == "blocked", (
+        f"dependent task must be status=blocked; got {blocked.status!r}"
+    )
+    failed_record = [t for t in store.load() if t.id == "aaaa0001"][0]
+    assert failed_record.status == "failed", (
+        f"prereq must be status=failed; got {failed_record.status!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_run_all_records_failure_for_failing_command(
+    taskq_home, monkeypatch
+):
+    """In-process: a single failing task in `run --all` is recorded as
+    a breaker failure (the sequential dispatch path with max_workers=1).
+    Covers lines 660-663.
+    """
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "1")
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        get_store,
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(id="aaaa0001", command="false"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run(["--all"], use_disk=True)
+    assert rc == 0, (
+        f"run --all with a failing task must exit 0; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+
+    # The breaker file should record one failure (state still CLOSED at 1/3).
+    breaker_file = taskq_home / "breaker.json"
+    assert breaker_file.exists(), (
+        f"breaker.json must be written after a failing run --all; "
+        f"missing: {breaker_file}"
+    )
+    payload = _json.loads(breaker_file.read_text(encoding="utf-8"))
+    assert payload["failure_count"] >= 1, (
+        f"breaker must record at least one failure; got {payload!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_run_all_records_failure_in_thread_pool(
+    taskq_home, monkeypatch
+):
+    """In-process: a failing task dispatched via the thread pool path
+    (max_workers=2) is recorded as a breaker failure.
+    Covers lines 673-676.
+    """
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "2")
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(id="aaaa0001", command="false"))
+    store.add(Task(id="bbbb0002", command="echo b"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run(["--all"], use_disk=True)
+    assert rc == 0, (
+        f"run --all via thread pool must exit 0; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+
+    breaker_file = taskq_home / "breaker.json"
+    payload = _json.loads(breaker_file.read_text(encoding="utf-8"))
+    assert payload["failure_count"] >= 1, (
+        f"breaker must record at least one failure in pool dispatch; "
+        f"got {payload!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `commands._utcnow` — UTC timestamp helper for blocked / finished rows
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_utcnow_returns_aware_utc():
+    """`_utcnow()` returns an aware UTC `datetime` (the helper used for
+    `blocked` rows in `_run_all` and `finished_at` timestamps).
+    Covers line 216.
+    """
+    from datetime import timezone as _tz
+
+    from taskq_plus.cli import commands
+
+    now = commands._utcnow()
+    assert now.tzinfo is not None, "_utcnow must return an aware datetime"
+    assert now.utcoffset() == _tz.utc.utcoffset(now), (
+        f"_utcnow must be UTC; got offset {now.utcoffset()!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# `commands._task_payload` / `commands._emit_json` — JSON formatters
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_task_payload_returns_json_dump():
+    """`_task_payload(task)` is the shared JSON serializer for both the
+    `status` and `list --json` handlers.
+    Covers line 172.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+
+    task = Task(command="echo hi")
+    payload = commands._task_payload(task)
+    assert payload["command"] == "echo hi"
+    assert payload["status"] == "pending"
+    assert payload["id"] == task.id
+
+
+# NFR-09
+def test_fr02_inprocess_emit_json_writes_single_line():
+    """`_emit_json(payload)` prints a single compact Unicode-preserving
+    JSON record on stdout (the underlying call for both `status --json`
+    and `list --json`).
+    Covers line 177.
+    """
+    from taskq_plus.cli import commands
+
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        commands._emit_json({"k": "v", "中": "文"})
+    written = out.getvalue()
+    assert "\n" in written, f"emit_json must end with newline; got {written!r}"
+    # The prefix line (before the trailing newline) must be valid JSON.
+    line = written.rstrip("\n")
+    decoded = _json.loads(line)
+    assert decoded == {"k": "v", "中": "文"}
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.executor._env_value` — typed env helpers
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_executor_env_value_returns_default_when_unset():
+    """`executor._env_value(name, default, ctor)` returns `default` when
+    the env var is unset (the empty-string path).
+    Covers lines 62-64.
+    """
+    from taskq_plus.service import executor
+
+    monkey = __import__("pytest").MonkeyPatch()
+    try:
+        monkey.delenv("TASKQ_RETRY_LIMIT", raising=False)
+        out = executor._env_value(
+            "TASKQ_RETRY_LIMIT", 99, ctor=int
+        )
+        assert out == 99, f"unset env must yield default; got {out!r}"
+    finally:
+        monkey.undo()
+
+
+# NFR-09
+def test_fr02_executor_env_value_parses_valid_int():
+    """`executor._env_value` parses a valid integer env var via `ctor`.
+    Covers line 66.
+    """
+    from taskq_plus.service import executor
+
+    monkey = __import__("pytest").MonkeyPatch()
+    try:
+        monkey.setenv("TASKQ_RETRY_LIMIT", "5")
+        out = executor._env_value("TASKQ_RETRY_LIMIT", 99, ctor=int)
+        assert out == 5, f"valid int env must parse; got {out!r}"
+    finally:
+        monkey.undo()
+
+
+# NFR-09
+def test_fr02_executor_env_value_falls_back_on_unparseable():
+    """`executor._env_value` returns `default` when the env var fails to
+    parse via `ctor` (the ValueError / TypeError branch).
+    Covers lines 66-68.
+    """
+    from taskq_plus.service import executor
+
+    monkey = __import__("pytest").MonkeyPatch()
+    try:
+        monkey.setenv("TASKQ_RETRY_LIMIT", "not-a-number")
+        out = executor._env_value("TASKQ_RETRY_LIMIT", 99, ctor=int)
+        assert out == 99, f"unparseable env must yield default; got {out!r}"
+    finally:
+        monkey.undo()
+
+
+# NFR-09
+def test_fr02_executor_retry_limit_from_env_uses_default(monkeypatch):
+    """`executor._retry_limit_from_env()` reads `TASKQ_RETRY_LIMIT`
+    (unset → `DEFAULT_RETRY_LIMIT` = 1).
+    Covers line 73.
+    """
+    from taskq_plus.service import executor
+
+    monkeypatch.delenv("TASKQ_RETRY_LIMIT", raising=False)
+    assert executor._retry_limit_from_env() == executor.DEFAULT_RETRY_LIMIT
+
+
+# NFR-09
+def test_fr02_executor_backoff_base_from_env_uses_default(monkeypatch):
+    """`executor._backoff_base_from_env()` reads `TASKQ_BACKOFF_BASE`
+    (unset → `DEFAULT_BACKOFF_BASE` = 1.0).
+    Covers line 78.
+    """
+    from taskq_plus.service import executor
+
+    monkeypatch.delenv("TASKQ_BACKOFF_BASE", raising=False)
+    assert executor._backoff_base_from_env() == executor.DEFAULT_BACKOFF_BASE
+
+
+# ---------------------------------------------------------------------------
+# `taskq_plus.service.executor.run_with_retry` — retry state machine
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_executor_run_with_retry_succeeds_after_one_retry():
+    """`run_with_retry` retries a transient `false` failure on the second
+    command (`echo hi`) and returns the successful result. Covers the
+    `done` early-exit path of the retry loop.
+    Covers lines 231-261.
+    """
+    from taskq_plus.models.task import Task
+    from taskq_plus.service import executor
+
+    sleeps: list = []
+
+    def _record_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    cmds = [Task(command="false"), Task(command="echo hi")]
+    result = executor.run_with_retry(
+        cmds, timeout=10.0, sleep_fn=_record_sleep,
+        retry_limit=2, backoff_base=1.0,
+    )
+    assert result.status == "done", (
+        f"retry must produce done; got {result.status!r}"
+    )
+    # First retry waits `base * 2**1` = 2.0s.
+    assert sleeps == [2.0], (
+        f"first retry backoff must be base*2**1=2.0; got {sleeps!r}"
+    )
+
+
+# NFR-09
+def test_fr02_executor_run_with_retry_exhausts_budget():
+    """`run_with_retry` returns the last attempt's result when the retry
+    budget is exhausted (the `idx - 1 >= retry_limit` early-exit branch).
+    Covers lines 252-257.
+    """
+    from taskq_plus.models.task import Task
+    from taskq_plus.service import executor
+
+    sleeps: list = []
+
+    def _record_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    cmds = [
+        Task(command="false"),
+        Task(command="false"),
+        Task(command="false"),
+    ]
+    result = executor.run_with_retry(
+        cmds, timeout=10.0, sleep_fn=_record_sleep,
+        retry_limit=2, backoff_base=1.0,
+    )
+    assert result.status == "failed", (
+        f"retry exhaustion must yield the last failed outcome; "
+        f"got {result.status!r}"
+    )
+    # Two retries means two backoff sleeps: base*2**1=2.0, base*2**2=4.0.
+    assert sleeps == [2.0, 4.0], (
+        f"two retries must sleep 2.0s and 4.0s; got {sleeps!r}"
+    )
+
+
+# NFR-09
+def test_fr02_executor_run_with_retry_rejects_empty_command_list():
+    """`run_with_retry` raises `ValueError` when called with no commands
+    (the `len(commands) == 0` guard).
+    Covers line 237.
+    """
+    import pytest as _pytest
+
+    from taskq_plus.service import executor
+
+    with _pytest.raises(ValueError, match="at least one command"):
+        executor.run_with_retry([], timeout=10.0)
+
+
+# ---------------------------------------------------------------------------
+# `commands.status` — in-process handler coverage
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_status_known_task_prints_fields(taskq_home):
+    """`commands.status(["<id>"])` prints every persisted field of a
+    known task and exits 0 (the human-readable branch).
+    Covers lines 697-708 and 736-751.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    task = store.add(Task(command="echo hi", name="alice"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.status([task.id], use_disk=True)
+    assert rc == 0, (
+        f"status on known task must exit 0; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+    stdout = out.getvalue()
+    assert "command: echo hi" in stdout, (
+        f"status must print command field; got {stdout!r}"
+    )
+    assert "name: alice" in stdout
+
+
+# NFR-09
+def test_fr02_inprocess_status_json_emits_payload(taskq_home):
+    """`commands.status(["<id>", "--json"])` emits a single-line JSON
+    object (the FR-05 machine-readable surface).
+    Covers line 747.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    task = store.add(Task(command="echo hi"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.status([task.id, "--json"], use_disk=True)
+    assert rc == 0
+    payload = _json.loads(out.getvalue().strip())
+    assert payload["id"] == task.id
+    assert payload["command"] == "echo hi"
+
+
+# NFR-09
+def test_fr02_inprocess_status_unknown_task_exits_2(taskq_home):
+    """`commands.status(["deadbeef"])` returns 2 with an `unknown task`
+    stderr marker.
+    Covers lines 740-743.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.status(["deadbeef"], use_disk=True)
+    assert rc == 2, f"status on unknown task must exit 2; got {rc}"
+    assert "unknown task" in err.getvalue()
+    assert "deadbeef" in err.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# `commands.list_tasks` — in-process handler coverage
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_list_tasks_prints_rows(taskq_home):
+    """`commands.list_tasks([])` prints every stored task on its own
+    `id\\tstatus\\tcommand` line.
+    Covers lines 760-770 and 791-806.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(command="echo a"))
+    store.add(Task(command="echo b"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.list_tasks([], use_disk=True)
+    assert rc == 0
+    stdout = out.getvalue()
+    assert "echo a" in stdout
+    assert "echo b" in stdout
+
+
+# NFR-09
+def test_fr02_inprocess_list_tasks_json_emits_array(taskq_home):
+    """`commands.list_tasks(["--json"])` emits a single-line JSON array
+    with one record per task.
+    Covers line 802.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(command="echo a"))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.list_tasks(["--json"], use_disk=True)
+    assert rc == 0
+    payload = _json.loads(out.getvalue().strip())
+    assert isinstance(payload, list)
+    assert len(payload) == 1
+    assert payload[0]["command"] == "echo a"
+
+
+# NFR-09
+def test_fr02_inprocess_list_tasks_reports_corrupted_store(taskq_home):
+    """`commands.list_tasks([])` returns 1 with `store corrupted` on
+    stderr when `tasks.json` is not valid JSON.
+    Covers lines 797-799.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    (taskq_home / "tasks.json").write_text("{not json", encoding="utf-8")
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.list_tasks([], use_disk=True)
+    assert rc == 1, (
+        f"corrupted tasks.json must exit 1; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+    assert "store corrupted" in err.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# `commands.clear` — in-process handler coverage
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_clear_removes_every_data_file(taskq_home):
+    """`commands.clear([])` removes every `DATA_FILENAMES` entry from
+    `$TASKQ_HOME` and exits 0.
+    Covers lines 829-839.
+    """
+    from taskq_plus.cli import commands
+
+    # Pre-populate the four data files.
+    for name in commands.DATA_FILENAMES:
+        (taskq_home / name).write_text("{}", encoding="utf-8")
+    for name in commands.DATA_FILENAMES:
+        assert (taskq_home / name).exists()
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.clear([])
+    assert rc == 0
+    for name in commands.DATA_FILENAMES:
+        assert not (taskq_home / name).exists(), (
+            f"{name} must be removed after clear"
+        )
+
+
+# ---------------------------------------------------------------------------
+# `commands.export` — in-process handler coverage (FR-08)
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_export_emits_json_csv_md(taskq_home):
+    """`commands.export(["--format", <fmt>])` renders the task list in
+    json / csv / md form.
+    Covers lines 854-864 and 886-898.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(command="echo hi"))
+
+    for fmt in ("json", "csv", "md"):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = commands.export(["--format", fmt], use_disk=True)
+        assert rc == 0, (
+            f"export --format {fmt} must exit 0; got {rc}; "
+            f"stderr={err.getvalue()!r}"
+        )
+        assert out.getvalue() != "", (
+            f"export --format {fmt} must emit non-empty output"
+        )
+
+
+# NFR-09
+def test_fr02_inprocess_export_rejects_unknown_format(taskq_home):
+    """`commands.export(["--format", "xml"])` exits 2 because argparse
+    rejects the value before the handler runs.
+    Covers the parser-level `choices` guard (lines 858-862).
+    """
+    from taskq_plus.cli import commands
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.export(["--format", "xml"], use_disk=True)
+    assert rc == 2, f"export --format xml must exit 2; got {rc}"
+
+
+# ---------------------------------------------------------------------------
+# `commands.graph` — in-process handler coverage (FR-05/FR-06)
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_graph_renders_dependency_tree(taskq_home):
+    """`commands.graph([])` prints each node at its depth's indent for
+    an acyclic graph within the depth cap.
+    Covers lines 942-970.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(id="aaaa0001", command="echo a"))
+    store.add(Task(id="bbbb0002", command="echo b", depends_on=["aaaa0001"]))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.graph([], use_disk=True)
+    assert rc == 0, (
+        f"graph on acyclic in-cap graph must exit 0; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+    stdout = out.getvalue()
+    assert "aaaa0001" in stdout
+    assert "bbbb0002" in stdout
+
+
+# NFR-09
+def test_fr02_inprocess_graph_reports_cycle(taskq_home):
+    """`commands.graph([])` on a cyclic tasks.json returns 5 with the
+    cycle path on stderr.
+    Covers lines 951-956.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(id="aaaa0001", command="echo a", depends_on=["bbbb0002"]))
+    store.add(Task(id="bbbb0002", command="echo b", depends_on=["aaaa0001"]))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.graph([], use_disk=True)
+    assert rc == 5, (
+        f"graph on cyclic tasks must exit 5; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+    assert "dependency cycle" in err.getvalue()
+
+
+# NFR-09
+def test_fr02_inprocess_graph_reports_depth_cap(taskq_home, monkeypatch):
+    """`commands.graph([])` returns 5 with the depth-cap stderr marker
+    when the longest chain exceeds `TASKQ_MAX_DAG_DEPTH`.
+    Covers lines 958-965.
+    """
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "1")
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    store.add(Task(id="aaaa0001", command="echo a"))
+    store.add(Task(id="bbbb0002", command="echo b", depends_on=["aaaa0001"]))
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.graph([], use_disk=True)
+    assert rc == 5, (
+        f"graph on depth-cap breach must exit 5; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+    assert "dependency chain too deep" in err.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# `commands.plugins` — in-process handler coverage (FR-05/FR-07)
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_inprocess_plugins_lists_allowlist(taskq_home):
+    """`commands.plugins(["some.module"])` emits one record per plugin
+    with its hooks and load status.
+    Covers lines 1014-1049.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.plugins(["os"])
+    assert rc == 0, (
+        f"plugins list must exit 0; got {rc}; stderr={err.getvalue()!r}"
+    )
+    stdout = out.getvalue()
+    assert "os" in stdout, f"plugin record must name the module; got {stdout!r}"
+    assert "hooks=" in stdout
+    assert "status=" in stdout
+
+
+# NFR-09
+def test_fr02_inprocess_plugins_rejects_path_form(taskq_home):
+    """`commands.plugins(["../evil.py"])` exits 6 with `rejected module`
+    on stderr (the FR-07 security rule — path/URL form rejected before
+    any import is attempted).
+    Covers lines 1033-1036.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.plugins(["../evil.py"])
+    assert rc == 6, f"path-form plugin must exit 6; got {rc}"
+    assert "rejected module" in err.getvalue()
+    assert "../evil.py" in err.getvalue()

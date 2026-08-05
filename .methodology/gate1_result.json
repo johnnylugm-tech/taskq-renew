@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 5,
-  "fr_id": "FR-01",
+  "fr_id": "FR-03",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,27 +9,27 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed!"
+      "tool_evidence": "All checks passed!\n"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785897521790\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.708}}"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785898725048\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.703}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 76,
+      "tests_passed": 25,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================== 76 passed in 1.99s ============================== coverage 100% on all 3 FR-01 files: cli/commands.py, models/task.py, storage/task_store.py. totals: covered_lines=513, num_statements=513, percent_covered=100.0. All 7 spec-required tests present and passing: test_fr01_submit_valid_command, test_fr01_submit_empty_command_rejected, test_fr01_submit_injection_command_rejected, test_fr01_submit_duplicate_name_rejected, test_fr01_submit_unknown_dependency_rejected, test_fr01_submit_command_at_length_limit_accepted, test_fr01_submit_command_over_length_limit_rejected."
+      "tool_evidence": "============================== 25 passed in 1.86s ============================== coverage 100.0% on FR-03 files (totals: covered_lines=150, num_statements=150, percent_covered=100.0). breaker.py 100% (32/32), executor.py 100% (68/68), breaker_store.py 100% (50/50). All 5/5 spec-required tests present and passing: test_fr03_transient_failure_succeeds_after_retry, test_fr03_breaker_open_rejects_run, test_fr03_breaker_cooldown_closes_breaker, test_fr03_breaker_recovery_within_cooldown_bound, test_fr03_retry_backoff_sleeps_exponentially. 0 failed, 0 skipped."
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
       "framework_override": true,
       "tool_output": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "tool_evidence": "Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. Analyzed 23 files, 30 dependencies. lint-imports exit=0 (PYTHONPATH=03-development/src). All 4 layering contracts enforced by NFR-06 satisfy the SAB architecture_constraints: ['no_circular_dependencies', 'five_layer_hierarchy', 'config_independence']."
+      "tool_evidence": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0 with PYTHONPATH=03-development/src."
     }
   },
   "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
@@ -70,16 +70,16 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "5da84b6387e1c52cf7645f0b42028eb8b642dfa32af39cb8bc244a29a7b63a4c",
+      "sha256": "6a8c51f1ff964810121abbd2fc891d74b8ee7ecd0467ae1b68fb1b7458cdd465",
       "bytes": 186,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785897521790\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.708}}"
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785898725048\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.703}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "bbb7b34031efa8ab8235f28584b59435ed76cb22c44c5491985384db15f3ebeb",
-      "bytes": 599,
-      "head": "============================== 76 passed in 1.99s ============================== coverage 100% on all 3 FR-01 files: cli/commands.py, models/task.py, storage/task_store.py. totals: covered_lines=513, num_statements=513, percent_covered=100.0. All 7 spec-required tests present and passing: test_fr01_submit_valid_command, test_fr01_submit_empty_command_rejected, test_fr01_submit_injection_command_rejected, test_fr01_submit_duplicate_name_rejected, test_fr01_submit_unknown_dependency_rejected, test_fr01_submit_command_at_length_limit_accepted, test_fr01_submit_command_over_length_limit_rejected."
+      "sha256": "0565b13d9c8d405bdabfef60939eeb64158b423d4400572a2076fcdb6ab307ff",
+      "bytes": 560,
+      "head": "============================== 25 passed in 1.86s ============================== coverage 100.0% on FR-03 files (totals: covered_lines=150, num_statements=150, percent_covered=100.0). breaker.py 100% (32/32), executor.py 100% (68/68), breaker_store.py 100% (50/50). All 5/5 spec-required tests present and passing: test_fr03_transient_failure_succeeds_after_retry, test_fr03_breaker_open_rejects_run, test_fr03_breaker_cooldown_closes_breaker, test_fr03_breaker_recovery_within_cooldown_bound, test_fr03_retry_backoff_sleeps_exponentially. 0 failed, 0 skipped."
     },
     "architecture_constraints": {
       "source": ".sessi-work/round_1/tools/architecture_constraints.txt",

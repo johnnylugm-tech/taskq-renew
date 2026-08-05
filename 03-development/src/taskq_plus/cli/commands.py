@@ -228,12 +228,22 @@ def _max_workers() -> int:
 
 
 def _persist_result(store, task: Task, result) -> None:
-    """[FR-02] Persist every field produced by a task execution."""
+    """[FR-02 / NFR-04] Persist every field produced by a task execution.
+
+    `stdout_tail` and `stderr_tail` are redacted via `audit._redact`
+    before the row hits disk so a secret embedded in either tail never
+    lands on `$TASKQ_HOME/tasks.json` unredacted (SPEC §4 NFR-04 line
+    211-214 — redaction before write to disk).
+    """
     result_fields = {
         "status": result.status,
         "exit_code": result.exit_code,
-        "stdout_tail": result.stdout_tail,
-        "stderr_tail": result.stderr_tail,
+        "stdout_tail": _audit._redact(result.stdout_tail)
+        if result.stdout_tail is not None
+        else None,
+        "stderr_tail": _audit._redact(result.stderr_tail)
+        if result.stderr_tail is not None
+        else None,
         "duration_ms": result.duration_ms,
         "finished_at": result.finished_at,
         "cached": False,
@@ -478,10 +488,13 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     if args.use_cache:
         cached_entry = cache_lookup(task.command, ttl_s=cache_ttl())
     if cached_entry is not None:
+        cached_raw = cached_entry.get("stdout_tail")
         cached_fields = {
             "status": "done",
             "exit_code": cached_entry.get("exit_code"),
-            "stdout_tail": cached_entry.get("stdout_tail"),
+            "stdout_tail": _audit._redact(cached_raw)
+            if cached_raw is not None
+            else None,
             "cached": True,
         }
         store.update(task.id, lambda current: current.model_copy(update=cached_fields))
@@ -509,13 +522,20 @@ def run(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
     if status == "done":
         updated = store.find(task.id)
         if updated is not None:
-            # [FR-04] Keep the newest successful result available for replay.
+            # [FR-04 / NFR-04] Keep the newest successful result available
+            # for replay. `stdout_tail` is redacted before write so a
+            # secret embedded in the captured output never lands on
+            # `$TASKQ_HOME/cache.json` unredacted (SPEC §4 NFR-04 line
+            # 211-214 — redaction before write to disk).
+            raw_stdout = updated.stdout_tail
             cache_record(
                 updated.command,
                 {
                     "command": updated.command,
                     "exit_code": updated.exit_code,
-                    "stdout_tail": updated.stdout_tail,
+                    "stdout_tail": _audit._redact(raw_stdout)
+                    if raw_stdout is not None
+                    else None,
                     "finished_at": updated.finished_at.isoformat()
                     if updated.finished_at is not None
                     else None,

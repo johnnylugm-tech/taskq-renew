@@ -97,13 +97,16 @@ def parse_plugin_specs(env_value: str) -> List[str]:
 
 
 def append_audit_event(event: dict) -> None:
-    """[FR-07] Append one JSONL event to `$TASKQ_HOME/audit.jsonl`.
+    """[FR-07 / NFR-04] Append one JSONL event to `$TASKQ_HOME/audit.jsonl`.
 
-    The write is guarded by a module-level lock so concurrent
-    plugin failures from `run --all` cannot interleave lines. The
-    file is opened with `O_APPEND` (positional writes) and
-    `fsync`'d on every event (NFR-03 — append + fsync contract for
-    `audit.jsonl`).
+    The event payload is redacted via `audit._redact` before serialisation
+    so a secret embedded in any string field (most commonly the
+    `detail.error` text from a plugin exception) never lands on disk
+    unredacted (SPEC §4 NFR-04 line 211-214). The write is guarded by
+    a module-level lock so concurrent plugin failures from
+    `run --all` cannot interleave lines, and the file is opened with
+    `O_APPEND` (positional writes) and `fsync`'d on every event
+    (NFR-03 — append + fsync contract for `audit.jsonl`).
 
     Args:
         event: A JSON-serialisable dict. The `event` discriminator
@@ -111,7 +114,7 @@ def append_audit_event(event: dict) -> None:
             not asserted here — the FR-07 surface only emits
             `plugin_error` and `plugin_disabled`.
     """
-    payload = json.dumps(event, default=str) + "\n"
+    payload = json.dumps(_redact_event(event), default=str) + "\n"
     with _AUDIT_LOCK:
         fd = os.open(
             str(_audit_path()),
@@ -123,6 +126,19 @@ def append_audit_event(event: dict) -> None:
             os.fsync(fd)
         finally:
             os.close(fd)
+
+
+def _redact_event(event: dict) -> dict:
+    """[NFR-04] Apply the canonical audit redaction to a plugin event.
+
+    Imported lazily so `service` does not depend on `observability` at
+    module load time (the SAB forbids upward imports). Each string,
+    dict, and list value is scanned through the redaction regex; other
+    types pass through unchanged.
+    """
+    from taskq_plus.observability.audit import _redact
+
+    return {k: _redact(v) for k, v in event.items()}
 
 
 @dataclass

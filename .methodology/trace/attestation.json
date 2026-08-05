@@ -1,7 +1,7 @@
 {
   "schema": "harness/traceability/attestation/v1",
-  "git_sha": "7947fa6d4034e08f4e55a3912e62b0e74c80352f",
-  "content_sha256": "3013d0f0218d185eab9fd6d060a81227876f15a3b5348ec10bab24485e7f9801",
+  "git_sha": "9190ccc822b1d07c5c4176a04531f9c4d78d9376",
+  "content_sha256": "94a71dcaa4b7146c24828cd988ca2a652e83186342c5ef45f896ce89f0eb2a9f",
   "tool": "scripts/build_trace_attestation.py",
   "overlay_used": null,
   "overlay_errors": [],
@@ -14,7 +14,7 @@
       "code_coverage": "100.0%",
       "test_coverage": "100.0%",
       "verification_rate": "100.0%",
-      "total_links": 48,
+      "total_links": 80,
       "missing_mappings": {
         "fr_without_srs": [],
         "fr_without_code": [],
@@ -32,6 +32,14 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/__init__.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/__main__.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/__init__.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/config.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/models/__init__.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/models/task.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/storage/task_store.py",
           "03-development/src/taskq_plus/__init__.py",
           "03-development/src/taskq_plus/__main__.py",
           "03-development/src/taskq_plus/cli/__init__.py",
@@ -52,6 +60,11 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/models/errors.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/__init__.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/executor.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/storage/task_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/models/errors.py",
           "03-development/src/taskq_plus/service/__init__.py",
@@ -69,6 +82,10 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/breaker.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/executor.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/storage/breaker_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/breaker.py",
           "03-development/src/taskq_plus/service/executor.py",
@@ -85,6 +102,9 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/cache.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/storage/cache_store.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/cache.py",
           "03-development/src/taskq_plus/storage/cache_store.py"
@@ -100,6 +120,8 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/main.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/cli/main.py"
         ],
@@ -114,6 +136,8 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/dag.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/dag.py"
         ],
@@ -128,6 +152,8 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/plugins.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/service/plugins.py"
         ],
@@ -142,6 +168,12 @@
         "status": "verified",
         "srs_section": "SAD.md",
         "code_files": [
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/main.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/observability/__init__.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/observability/audit.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/observability/export.py",
+          ".claude/worktrees/agent-afc91004aadf0cef0/03-development/tests/test_fr08.py",
           "03-development/src/taskq_plus/cli/commands.py",
           "03-development/src/taskq_plus/cli/main.py",
           "03-development/src/taskq_plus/observability/__init__.py",

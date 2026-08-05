@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 5,
-  "fr_id": "FR-05",
+  "fr_id": "FR-06",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -14,15 +14,15 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785899144487\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.701\n    }\n}\n\n"
+      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785899326812\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.697\n    }\n}\n"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 50,
+      "tests_passed": 20,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "unds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 50 items\n\n03-development/tests/test_fr05.py ...................................... [ 76%]\n............                                                             [100%]\n\n============================== 50 passed in 4.29s =============================="
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 20 items\n\n03-development/tests/test_fr06.py ....................                   [100%]\n\n============================== 20 passed in 2.23s =============================="
     },
     "architecture_constraints": {
       "score": 100.0,
@@ -69,16 +69,16 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "842d13364f637341739bbf9044a0a8cfa7992864e7d1458b7f53b90555041823",
+      "sha256": "e1726ffaf4139d671d8599443f5bdcef12691b8304e19eba8a0bd54b2a47c471",
       "bytes": 250,
-      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785899144487\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.701\n    }\n}"
+      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785899326812\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.697\n    }\n}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "bec60133d909735889c733cf6b823d7ac64000fb137d3667b176ca20b65bb7a6",
-      "bytes": 500,
-      "head": "unds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 50 items\n\n03-development/tests/test_fr05.py ...................................... [ 76%]\n............                                                             [100%]\n\n============================== 50 passed in 4.29s =============================="
+      "sha256": "ec5bf01dfeaa1a026151b15a154ef963a395f6a9c9f80e2e7879ea85dd1643bd",
+      "bytes": 638,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 20 items\n\n03-development/tests/test_fr06.py ....................                   [100%]\n\n============================== 20 passed in 2.23s =============================="
     },
     "architecture_constraints": {
       "source": "tool_evidence (inline)",

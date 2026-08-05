@@ -743,6 +743,27 @@ def test_fr08_inprocess_commands_export_with_no_records(taskq_home, monkeypatch,
     assert rc == 0
 
 
+# NFR-09
+def test_fr08_export_returns_2_when_systemexit_code_is_not_int(monkeypatch):
+    """[FR-08] `_parse_args`'s `SystemExit.code` is always an int in
+    practice (argparse's own `error()` always calls `exit(2, message)`) —
+    this covers the defensive fallback for the case where it is not (e.g.
+    `parser.exit(message)` called with only a positional message, which
+    argparse assigns to `status` instead of `message`). No real `--format`
+    rejection reaches `commands.py`'s `export()` `return 2` line; this
+    constructs the condition directly via the same `_parse_args` seam the
+    handler itself calls through.
+    """
+    from taskq_plus.cli import commands
+
+    def _raise_non_int_exit(parser, argv):
+        raise SystemExit("unexpected non-int exit code")
+
+    monkeypatch.setattr(commands, "_parse_args", _raise_non_int_exit)
+    rc = commands.export(["--format", "json"])
+    assert rc == 2
+
+
 # NFR-04 / NFR-09
 def test_fr08_inprocess_commands_export_via_cli_main(tmp_path, monkeypatch, capsys):
     """[FR-08] `python -m taskq_plus export --format ...` dispatches in-process."""

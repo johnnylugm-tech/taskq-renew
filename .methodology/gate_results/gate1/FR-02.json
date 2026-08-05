@@ -1,7 +1,7 @@
 {
   "gate": 1,
-  "phase": 5,
-  "fr_id": "FR-04",
+  "phase": 6,
+  "fr_id": "FR-02",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,25 +9,29 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed!"
+      "tool_output": ".sessi-work/round_1/tools/linting.txt",
+      "tool_evidence": "[] — ruff check 03-development/src/ --extend-ignore RUF001,RUF002,RUF003 --output-format json --exit-zero returned [] (0 violations)"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785908239359\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.639}}"
+      "tool_output": ".sessi-work/round_1/tools/type_safety.txt",
+      "tool_evidence": "pyright summary: filesAnalyzed=23, errorCount=0, warningCount=0, informationCount=0"
     },
     "test_coverage": {
       "score": 100.0,
-      "threshold": 100,
-      "tests_passed": 21,
+      "threshold": 80,
+      "tests_passed": 316,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "21 passed in 2.63s\n03-development/src/taskq_plus/service/cache.py            44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py      29      0   100%\nTOTAL                                                     73      0   100%\n21 passed, 0 failed, 0 skipped"
+      "tool_output": ".sessi-work/round_1/tools/test_coverage.txt",
+      "tool_evidence": "316 passed in 12.82s. coverage totals: percent_covered=100.0 (covered_lines=428, num_statements=428, missing_lines=0) on FR-02 source files (executor.py, commands.py)"
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "Analyzed 23 files, 30 dependencies. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. Contracts: 4 kept, 0 broken."
+      "tool_output": ".sessi-work/round_1/tools/architecture_constraints.txt",
+      "tool_evidence": "Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT; models-not-pulling-storage KEPT; models-not-pulling-cli KEPT; config-is-independent KEPT. Analyzed 23 files, 30 dependencies."
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -40,51 +44,51 @@
     "mutation_testing::setup.cfg": {
       "source": "setup.cfg (score-altering exclusions)",
       "kind": "file",
-      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
-      "bytes": 1380,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
+      "sha256": "2042aa7a848ef0252794d6a488aad055c926e29a53de80cc496e3b33c06e8e16",
+      "bytes": 2332,
+      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[tool:pytest]\n# The harness's mutation-test workdir only copies setup.cfg (not pytest.ini),\n# so the framework's promotion (mutation_enforcer.py:388-424) rewrites this\n# entry to an absolute path that pytest can resolve inside its temp dir.\n# Without it mutmut's baseline test-suite run fails collection with\n# `ModuleNotFoundError: taskq_plus` because no `from taskq_plus...` import\n# can be resolved at collection time.\n#"
     },
     "test_coverage::pytest.ini": {
       "source": "pytest.ini (score-altering exclusions)",
       "kind": "file",
-      "sha256": "4e8ec2d8bd881cfc17c027f3fb8c69d1a7a5a11229b99f6d111aac74c5fc6714",
-      "bytes": 589,
-      "head": "[pytest]\n# The harness vendored under `harness/` carries its own test suite\n# (`harness/tests/`) which imports `harness_cli` and crashes on\n# Python <3.10 with `SystemExit(1)`. When the gate's cross-validation\n# invokes `pytest {root}` for `pytest-benchmark` (or any test-family\n# tool that takes the project root as a path), pytest would otherwise\n# discover the harness tests alongside the project tests and abort\n# collection. Keep the harness suite out of root-level pytest runs.\naddopts =\n    --ignore=harness/tests\n    --ignore=harness/tests-cli\ntestpaths =\n    03-development/tests"
+      "sha256": "54b69fe4dbee31b5dd7974ad6898a8ec3ba0e98967aa25bfe5f0b639e9d4c0e8",
+      "bytes": 1485,
+      "head": "[pytest]\n# The harness vendored under `harness/` carries its own test suite\n# (`harness/tests/`) which imports `harness_cli` and crashes on\n# Python <3.10 with `SystemExit(1)`. When the gate's cross-validation\n# invokes `pytest {root}` for `pytest-benchmark` (or any test-family\n# tool that takes the project root as a path), pytest would otherwise\n# discover the harness tests alongside the project tests and abort\n# collection. Keep the harness suite out of root-level pytest runs.\n# Explicit `-p pytest_benchmark` is REQUIRED: the mutation-testing\n# framework (mutation_enforcer.py:494) sets PYTEST_DISABLE_PLUGIN_AUTOLOAD=1\n# in mutmut's subprocess env, and only re-enables xdist/pytest_cov based\n# on the resolved runner. Without this, the baseline test-suite run\n# errors every benchmark with \"fixture 'benchmark' not found\" and\n# mutmut reports score=null. Loading the plugin here is harmless for\n# non-benchmark tests — pytest-benchmark only triggers on the fixture.\naddopts =\n    --ignore=harness/tests\n    --ignore=harness/tests-cli\n    -p benchmark\n# `taskq_plus` lives under `03-development/src`; without this pytest"
     },
     "test_coverage::setup.cfg": {
       "source": "setup.cfg (score-altering exclusions)",
       "kind": "file",
-      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
-      "bytes": 1380,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
+      "sha256": "2042aa7a848ef0252794d6a488aad055c926e29a53de80cc496e3b33c06e8e16",
+      "bytes": 2332,
+      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[tool:pytest]\n# The harness's mutation-test workdir only copies setup.cfg (not pytest.ini),\n# so the framework's promotion (mutation_enforcer.py:388-424) rewrites this\n# entry to an absolute path that pytest can resolve inside its temp dir.\n# Without it mutmut's baseline test-suite run fails collection with\n# `ModuleNotFoundError: taskq_plus` because no `from taskq_plus...` import\n# can be resolved at collection time.\n#"
     },
     "linting": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
-      "bytes": 18,
+      "source": ".sessi-work/round_1/tools/linting.txt",
+      "kind": "file",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19,
       "head": "All checks passed!"
     },
     "type_safety": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "bdaa01eb24e114c9e99b66e0fcfd77773e0f451ffd4eabfaec550250135fef34",
-      "bytes": 186,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785908239359\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.639}}"
+      "source": ".sessi-work/round_1/tools/type_safety.txt",
+      "kind": "file",
+      "sha256": "428ce7c438f69d72f8972b04a970cab996f3bdc2ec8ed007956d08b3df41e14b",
+      "bytes": 252,
+      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785914937905\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.633\n    }\n}\n"
     },
     "test_coverage": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "fe35ac7df6d9309327b89a5fee3d66b22c1daf7c6e8c3247d17cac610962b592",
-      "bytes": 274,
-      "head": "21 passed in 2.63s\n03-development/src/taskq_plus/service/cache.py            44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py      29      0   100%\nTOTAL                                                     73      0   100%\n21 passed, 0 failed, 0 skipped"
+      "source": ".sessi-work/round_1/tools/test_coverage.txt",
+      "kind": "file",
+      "sha256": "c607f3c79edd615b4ceb695b7fe43eab00d0bbc0e6ec974ef42508fec96ee0fa",
+      "bytes": 3651,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 316 items\n\n03-development/tests/test_fr02.py ...................................... [ 12%]\n..........................                                               [ 20%]\n03-development/tests/test_fr01.py ...................................... [ 32%]\n......................................                                   [ 44%]\n03-development/tests/test_fr03.py .........................              [ 52%]\n03-development/tests/test_fr05.py ...................................... [ 64%]\n............                                                             [ 68%]\n03-development/tests/test_fr07.py .......................                [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n........................................                                 [100%]\n\n================================ tests coverage ================================"
     },
     "architecture_constraints": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "97128a292b6224e18b983bab36f8e599b35cbd7e8d40f1a6154e7e92c0751508",
-      "bytes": 184,
-      "head": "Analyzed 23 files, 30 dependencies. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. Contracts: 4 kept, 0 broken."
+      "source": ".sessi-work/round_1/tools/architecture_constraints.txt",
+      "kind": "file",
+      "sha256": "7ac4bde5fda0f1939d01dac7db6bf5be0e71052c11bafe2b0a3267d34482aed8",
+      "bytes": 924,
+      "head": "\n╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐\n╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │\n ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗\n ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝\n╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║\n╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝\n  └──▶║║                    ▲ \n      ╚╝────────────────────┘\n\n\n---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT"
     }
   },
   "composite_score": 100.0,

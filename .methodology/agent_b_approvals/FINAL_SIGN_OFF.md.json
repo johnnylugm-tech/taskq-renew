@@ -1,0 +1,18 @@
+{
+  "fr": "FINAL_SIGN_OFF.md",
+  "review_status": "APPROVE",
+  "reason": "FINAL_SIGN_OFF.md at repo root is a fully traceable sign-off artifact citing release commit 9b7e147 (line 5), Gate 4 composite 93.57 with quality_complete=true and rounds_used=1 (lines 14-27), explicit DA-waiver for architecture dim 77.8 (lines 56-60, lines 90-93), per-FR table all 100.0 (lines 31-39), and verification provenance to VERIFICATION_REPORT.md + BASELINE.md (lines 8-13). The 6-point sign-off statement (lines 70-95) is auditable and matches the harness gate4_result.json fields. Six known limitations carried forward non-blocking (lines 53-64). No medium/high gaps.",
+  "citations": [
+    "FINAL_SIGN_OFF.md:5",
+    "FINAL_SIGN_OFF.md:18",
+    "FINAL_SIGN_OFF.md:31",
+    "FINAL_SIGN_OFF.md:70"
+  ],
+  "docs_embedded": [
+    "QUALITY_REPORT.md",
+    "RELEASE_NOTES.md",
+    "FINAL_SIGN_OFF.md",
+    "VERIFICATION_REPORT.md"
+  ],
+  "confidence": 0.9
+}

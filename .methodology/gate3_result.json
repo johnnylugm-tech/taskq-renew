@@ -235,18 +235,12 @@
   },
   "crg_review_context": {
     "status": "ok",
-    "summary": "Review context for 15 changed file(s):\n  - Risk: low\n  - 0 impacted nodes in 0 files",
+    "summary": "Review context for 10 changed file(s):\n  - Risk: low\n  - 0 impacted nodes in 0 files",
     "risk": "low",
-    "changed_file_count": 15,
+    "changed_file_count": 10,
     "impacted_file_count": 0,
-    "key_entities": [
-      "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/cli/main.py",
-      "_build_parser",
-      "_split_submit_tokens",
-      "main",
-      "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/config.py"
-    ],
-    "test_gaps": 59,
+    "key_entities": [],
+    "test_gaps": 0,
     "next_tool_suggestions": [
       "detect_changes",
       "get_affected_flows",
@@ -254,20 +248,20 @@
     ],
     "context_savings": {
       "estimated": true,
-      "saved_tokens": 18972,
+      "saved_tokens": 12502,
       "saved_percent": 99
     }
   },
   "crg_impact_radius": {
     "status": "ok",
-    "summary": "Blast radius for 15 changed file(s):\n  - 77 nodes directly changed\n  - 0 nodes impacted (within 2 hops)\n  - 0 additional files affected",
+    "summary": "Blast radius for 10 changed file(s):\n  - 0 nodes directly changed\n  - 0 nodes impacted (within 2 hops)\n  - 0 additional files affected",
     "risk": "low",
     "impacted_file_count": 0,
     "key_entities": [],
     "truncated": false,
     "context_savings": {
       "estimated": true,
-      "saved_tokens": 19036,
+      "saved_tokens": 12515,
       "saved_percent": 100
     }
   },

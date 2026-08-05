@@ -1,16 +1,8 @@
 {
   "gate": 1,
-  "phase": 7,
-  "fr_id": "FR-07",
+  "phase": 8,
+  "fr_id": "FR-01",
   "overall_score": 100.0,
-  "_score_weights": {
-    "linting": 0.33,
-    "type_safety": 0.33,
-    "test_coverage": 0.34,
-    "architecture_constraints": 0.25,
-    "scaled_sum_divided_by_0.75": true
-  },
-  "_weighted_calc_note": "weights per evaluate_dimension.md: linting=0.33, type_safety=0.33, test_coverage=0.34, architecture_constraints=0.25 (scaled: divide sum by 1.25). All four scored 100.",
   "quality_complete": true,
   "rounds_used": 1,
   "breakdown": {
@@ -22,20 +14,20 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\":\"1.1.409\",\"time\":\"1785918025435\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.631}}"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785924525952\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.642}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 322,
+      "tests_passed": 342,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2\ncollected 322 items\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n============================= 322 passed in 11.24s ==============================\nCoverage: plugins.py + commands.py = 100.0% (462/462 lines)"
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 342 items\n\n03-development/tests/test_fr01.py ...................................... [ 11%]\n.......................................                                  [ 22%]\n03-development/tests/test_fr02.py ...................................... [ 33%]\n..............................                                           [ 42%]\n03-development/tests/test_fr05.py ...................................... [ 53%]\n............                                                             [ 57%]\n03-development/tests/test_fr06.py ....................                   [ 62%]\n03-development/tests/test_fr07.py ...................................... [ 73%]\n..........                                                               [ 76%]\n03-development/tests/test_fr08.py ...................................... [ 88%]\n.........................................                                [100%]\n\n============================= 342 passed in 13.68s ============================="
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "Contracts\n---------\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\nContracts: 4 kept, 0 broken."
+      "tool_evidence": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0."
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -76,23 +68,16 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "c9d38671c60ab02a9d32537715ae04385fd98aaecd1c4982e123b4511aac5419",
-      "bytes": 170,
-      "head": "{\"version\":\"1.1.409\",\"time\":\"1785918025435\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.631}}"
+      "sha256": "b895b37fc3b2bd97e02ed57fc29653f23cc516b661549886fd5a30394b803981",
+      "bytes": 186,
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785924525952\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.642}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "b499b135818dcde2d50341dadb38cd18b42a18e3bb49bbd720c7a27c0ad97853",
-      "bytes": 1090,
-      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2\ncollected 322 items\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n============================= 322 passed in 11.24s ==============================\nCoverage: plugins.py + commands.py = 100.0% (462/462 lines)"
-    },
-    "architecture_constraints": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "99ff0145b083cd468cb4629aeb768ffd575b01be50e8ade9b64ba3bc9f8aa39e",
-      "bytes": 236,
-      "head": "Contracts\n---------\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\nContracts: 4 kept, 0 broken."
+      "sha256": "6bfcdb75ec4dda8080e9b55fcfd031e0ecc698fb169354e358b032f7f9e084f5",
+      "bytes": 1439,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 342 items\n\n03-development/tests/test_fr01.py ...................................... [ 11%]\n.......................................                                  [ 22%]\n03-development/tests/test_fr02.py ...................................... [ 33%]\n..............................                                           [ 42%]\n03-development/tests/test_fr05.py ...................................... [ 53%]\n............                                                             [ 57%]\n03-development/tests/test_fr06.py ....................                   [ 62%]\n03-development/tests/test_fr07.py ...................................... [ 73%]\n..........                                                               [ 76%]\n03-development/tests/test_fr08.py ...................................... [ 88%]\n.........................................                                [100%]\n"
     }
   },
   "composite_score": 100.0,

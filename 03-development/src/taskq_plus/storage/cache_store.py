@@ -7,12 +7,14 @@ Citations:
 from __future__ import annotations
 
 import json
-import os
-import tempfile
+import os  # noqa: F401  — re-exported so FR tests can monkeypatch
+           # `cache_store.os.replace` to force a failing-replace and
+           # verify the temp-file cleanup branch in `storage.atomic`.
 import threading
 from pathlib import Path
 
 from taskq_plus.config import taskq_home
+from taskq_plus.storage.atomic import atomic_write_json
 
 
 #: [FR-04] Basename of the persisted cache file (SPEC §3 FR-04).
@@ -62,24 +64,17 @@ class CacheStore:
             self._write_atomic(entries)
 
     def _write_atomic(self, payload: dict) -> None:
-        """[FR-04] Write JSON atomically: tmp + `os.replace` (NFR-03).
+        """[FR-04] Write JSON atomically via `storage.atomic` (NFR-03).
+
+        The actual `tmp + os.replace` is delegated to the storage hub
+        (SAD §2.3.1) so all three stores share one implementation;
+        this wrapper only pins the `.cache.` temp-file prefix so a
+        leftover can be diagnosed as this store's, not task_store's.
 
         Citations:
             SPEC.md §4 NFR-03 — atomic write invariant.
         """
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp_name = tempfile.mkstemp(
-            prefix=".cache.", suffix=".json.tmp", dir=self.path.parent
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                json.dump(payload, handle, ensure_ascii=False, indent=2)
-            os.chmod(tmp_name, 0o644)
-            os.replace(tmp_name, self.path)
-        except Exception:
-            if os.path.exists(tmp_name):
-                os.unlink(tmp_name)
-            raise
+        atomic_write_json(self.path, payload, tmp_prefix=".cache.")
 
 
 def make_cache_store() -> CacheStore:

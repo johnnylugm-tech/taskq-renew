@@ -36,8 +36,6 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import json
-import os
-import tempfile
 import threading
 from pathlib import Path
 from typing import (
@@ -52,6 +50,7 @@ from typing import (
 
 from taskq_plus.config import tasks_path
 from taskq_plus.models.task import Task
+from taskq_plus.storage.atomic import atomic_write_json
 
 #: [FR-01] Statuses that still hold a name slot. SPEC §3 line 83 — name
 #: uniqueness only applies to tasks that are pending or running; done /
@@ -219,25 +218,20 @@ class DiskBackend:
         raise KeyError(f"task {task_id!r} not found")
 
     def _write_atomic(self, payload: list) -> None:
-        """[FR-01] Write JSON atomically: tmp + `Path.replace` (NFR-03).
+        """[FR-01] Write JSON atomically via `storage.atomic` (NFR-03).
+
+        Kept as a thin wrapper so the FR tests that drive the
+        cleanup-on-failure contract directly (e.g.
+        ``backend._write_atomic([{"bad": object()}])`` in test_fr01)
+        still exercise the same attribute. The actual `tmp + os.replace`
+        pattern now lives in ``taskq_plus.storage.atomic`` — the
+        storage hub the SAB §2.3.1 declares.
 
         Citations:
             SPEC.md §6 line 335 — `tmp + os.replace` 原子寫入.
             SPEC.md §3 FR-01 line 90 — atomic write to tasks.json.
         """
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp_name = tempfile.mkstemp(
-            prefix=".tasks.", suffix=".json.tmp", dir=self._path.parent
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh, ensure_ascii=False, indent=2)
-            os.chmod(tmp_name, 0o644)
-            os.replace(tmp_name, self._path)
-        except Exception:
-            if os.path.exists(tmp_name):
-                os.unlink(tmp_name)
-            raise
+        atomic_write_json(self._path, payload, tmp_prefix=".tasks.")
 
 
 class TaskStore:

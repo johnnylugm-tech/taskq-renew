@@ -37,6 +37,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from taskq_plus.storage.atomic import atomic_append_jsonl
+
 
 #: [FR-08] Default audit log basename when `TASKQ_AUDIT_LOG` is unset
 #: (SPEC §3 FR-08 line 162).
@@ -87,23 +89,15 @@ def _append_line(path: str, line: str) -> None:
     """[FR-08] Append one already-serialised line to the audit log.
 
     Isolates the durability contract (NFR-03) from the record shape:
-    the parent directory is created on demand, the file is opened
-    `O_APPEND` so concurrent writers cannot overwrite each other's
-    bytes, and the write is `fsync`'d before the descriptor closes.
-    A crash mid-write therefore leaves the prior lines intact and the
-    next line starts on a fresh byte boundary. `_AUDIT_LOCK`
-    serialises the `run --all` worker threads within this process.
+    the underlying `open(O_APPEND) + fsync` lives in
+    ``taskq_plus.storage.atomic`` (SAD §2.3.1) so audit and the three
+    JSON stores share one durability primitive. A crash mid-write
+    therefore leaves the prior lines intact and the next line
+    starts on a fresh byte boundary. `_AUDIT_LOCK` serialises the
+    `run --all` worker threads within this process.
     """
     with _AUDIT_LOCK:
-        directory = os.path.dirname(path)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
-        try:
-            os.write(fd, line.encode("utf-8"))
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        atomic_append_jsonl(path, line)
 
 
 def new_correlation_id() -> str:

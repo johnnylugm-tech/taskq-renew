@@ -19,8 +19,6 @@ Citations:
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
@@ -31,6 +29,7 @@ from taskq_plus.service.breaker import (
     STATE_OPEN,
     STATE_HALF_OPEN,
 )
+from taskq_plus.storage.atomic import atomic_write_json
 
 
 #: [FR-03] Basename of the persisted breaker file (SPEC §3 FR-03).
@@ -119,25 +118,19 @@ class BreakerStore:
         self._write_atomic(payload)
 
     def _write_atomic(self, payload: dict) -> None:
-        """[FR-03] Write JSON atomically: tmp + `Path.replace` (NFR-03).
+        """[FR-03] Write JSON atomically via `storage.atomic` (NFR-03).
+
+        The actual `tmp + os.replace` pattern is delegated to the
+        storage hub (SAD §2.3.1) so all three stores share one
+        implementation; this wrapper only fixes the temp-file prefix
+        so a leftover `.breaker.*.json.tmp` can be diagnosed as this
+        store's, not task_store's.
 
         Citations:
             SPEC.md §6 line 335 — `tmp + os.replace` 原子寫入.
             SPEC.md §4 NFR-03 — atomic write invariant.
         """
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp_name = tempfile.mkstemp(
-            prefix=".breaker.", suffix=".json.tmp", dir=self._path.parent
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh, ensure_ascii=False, indent=2)
-            os.chmod(tmp_name, 0o644)
-            os.replace(tmp_name, self._path)
-        except BaseException:  # pragma: no cover — atomic-write cleanup, see core.atomic_io
-            if os.path.exists(tmp_name):
-                os.unlink(tmp_name)
-            raise
+        atomic_write_json(self._path, payload, tmp_prefix=".breaker.")
 
 
 def make_breaker_store() -> BreakerStore:

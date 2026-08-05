@@ -1,7 +1,7 @@
 {
   "gate": 1,
-  "phase": 4,
-  "fr_id": "FR-05",
+  "phase": 5,
+  "fr_id": "FR-08",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,25 +9,25 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "ruff check 03-development/src/ --extend-ignore RUF001,RUF002,RUF003 exit=0: All checks passed!"
+      "tool_evidence": "All checks passed!"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785892408134\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.631}}"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 50,
+      "tests_passed": 77,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "coverage run -m pytest 03-development/tests/test_fr05.py: 50 passed in 4.04s. 0 failed. Coverage FR-scoped (cli/main.py, cli/commands.py): 100% (408/408 stmts, 0 miss). spec_cov_pct=100% (9/9 required tests present and pass - test_fr05_status_json_contains_all_task_fields, test_fr05_clear_removes_all_data_files, test_fr05_all_exit_codes_are_reachable x7). score=min(coverage_pct=100, spec_cov_pct=100)=100"
+      "tool_evidence": "77 passed in 0.99s. coverage totals: percent_covered=100.0, covered_lines=451/451, missing_lines=0. Required tests present: test_fr08_submit_run_audit_events_share_correlation_id, test_fr08_exports_agree_and_escape_csv_fields (2/2 unique = 100% spec coverage)."
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "lint-imports (PYTHONPATH=03-development/src:.) exit=0: Analyzed 23 files, 29 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT"
+      "tool_evidence": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. exit=0"
     }
   },
   "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
@@ -61,30 +61,30 @@
     "linting": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "56201fd273620c8a16378ad1cd47f399b492f937b74d578c27bfcd28417d3587",
-      "bytes": 94,
-      "head": "ruff check 03-development/src/ --extend-ignore RUF001,RUF002,RUF003 exit=0: All checks passed!"
+      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
+      "bytes": 18,
+      "head": "All checks passed!"
     },
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "a851f942504681256e9d78f19db85645b41af8820875f0b3c963980118d1ae7f",
-      "bytes": 233,
-      "head": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785892408134\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.631}}"
+      "sha256": "d6e352dc9f6e65cf932a7a0948aba90297a3e01e1a97b061a40450464c91a284",
+      "bytes": 135,
+      "head": "{\"version\": \"1.1.409\", \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "5c7c28886b466ecd29fc9991881c905d21043282b86b4bbaf67358031d4f6da4",
-      "bytes": 407,
-      "head": "coverage run -m pytest 03-development/tests/test_fr05.py: 50 passed in 4.04s. 0 failed. Coverage FR-scoped (cli/main.py, cli/commands.py): 100% (408/408 stmts, 0 miss). spec_cov_pct=100% (9/9 required tests present and pass - test_fr05_status_json_contains_all_task_fields, test_fr05_clear_removes_all_data_files, test_fr05_all_exit_codes_are_reachable x7). score=min(coverage_pct=100, spec_cov_pct=100)=100"
+      "sha256": "ec749d137f12bef0d590fd6c7dca7312c354ebec469ac98b8bff41da44433abd",
+      "bytes": 260,
+      "head": "77 passed in 0.99s. coverage totals: percent_covered=100.0, covered_lines=451/451, missing_lines=0. Required tests present: test_fr08_submit_run_audit_events_share_correlation_id, test_fr08_exports_agree_and_escape_csv_fields (2/2 unique = 100% spec coverage)."
     },
     "architecture_constraints": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "16b82e84febaa98fa2909a6dba6067d2318664388e22467bbea8d7c70ab003b8",
-      "bytes": 238,
-      "head": "lint-imports (PYTHONPATH=03-development/src:.) exit=0: Analyzed 23 files, 29 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT"
+      "sha256": "101e2329d6f3366146c39c2e606a77825ba32036451e22c275b5245da8851d8d",
+      "bytes": 191,
+      "head": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. exit=0"
     }
   },
   "composite_score": 100.0,

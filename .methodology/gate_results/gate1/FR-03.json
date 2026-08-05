@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 8,
-  "fr_id": "FR-07",
+  "fr_id": "FR-04",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -14,18 +14,20 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785919219388\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.673\n    }\n}"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785924484800\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.662}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 322,
+      "tests_passed": 21,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 322 items\n\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n\n============================= 322 passed in 11.10s ============================="
+      "tool_evidence": "21 passed in 2.60s. Coverage: 100.0% (73/73 lines) across cache.py + cache_store.py. Required FR-04 spec tests (3/3 present): test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution."
     },
     "architecture_constraints": {
-      "score": 100.0
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken (storage-not-pulling-cli, models-not-pulling-storage, models-not-pulling-cli, config-is-independent)."
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -66,16 +68,23 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "78cbda48fb3cc2443cd22f6ec5e66d451d75f06f40d22fc030f85bdb9313fc2d",
-      "bytes": 250,
-      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785919219388\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.673\n    }\n}"
+      "sha256": "ac811279eba51db678e14ec6c4eb1b4b1ddcfece558382c9d3c8c9a09f164054",
+      "bytes": 186,
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785924484800\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.662}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "97a324f59f4e46f8cbb4179ffd6ab624364181e115c4266e8fc1da0a19e2baff",
-      "bytes": 1359,
-      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 322 items\n\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n\n============================= 322 passed in 11.10s ============================="
+      "sha256": "9a547fbb59bedccdfa23a3aaf894d6b56ace91dab206f9180ea227fd282ddfc1",
+      "bytes": 265,
+      "head": "21 passed in 2.60s. Coverage: 100.0% (73/73 lines) across cache.py + cache_store.py. Required FR-04 spec tests (3/3 present): test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution."
+    },
+    "architecture_constraints": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "75d82f42830f46a66ac403eca91d4a5810c710851e1f4fc97a5c9d502c538c94",
+      "bytes": 165,
+      "head": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken (storage-not-pulling-cli, models-not-pulling-storage, models-not-pulling-cli, config-is-independent)."
     }
   },
   "composite_score": 100.0,

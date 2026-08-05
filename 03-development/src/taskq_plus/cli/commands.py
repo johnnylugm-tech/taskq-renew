@@ -663,18 +663,34 @@ def _run_all(store, plugin_registry: Optional[PluginRegistry] = None) -> int:
                     breaker.record_failure()
                 breaker_dirty = True
         else:
+            # [FR-03] Aggregate per-layer statuses BEFORE updating the
+            # breaker: a layer is one concurrent dispatch wave. Iterating
+            # `futures.items()` in insertion order can interleave a
+            # `record_success` after a `record_failure` and silently
+            # reset the consecutive-failure counter; successes within
+            # the same layer must NOT clobber same-layer failures.
+            statuses: List[Tuple[Task, str]] = []
             with ThreadPoolExecutor(max_workers=max_workers) as pool:
                 futures = {pool.submit(_dispatch, task): task for task in runnable}
                 for future, task in futures.items():
                     status = future.result()
+                    statuses.append((task, status))
                     refreshed = store.find(task.id)
                     if refreshed is not None:
                         by_id[task.id] = refreshed
+                    breaker_dirty = True
+            # Record every failure in the layer first. Then reset the
+            # breaker ONLY when the layer produced zero failures — a
+            # mixed-outcome layer preserves the net failure count.
+            layer_had_failure = False
+            for _task, status in statuses:
+                if status in ("failed", "timeout"):
+                    breaker.record_failure()
+                    layer_had_failure = True
+            if not layer_had_failure:
+                for _task, status in statuses:
                     if status == "done":
                         breaker.record_success()
-                    elif status in ("failed", "timeout"):
-                        breaker.record_failure()
-                    breaker_dirty = True
 
     if breaker_dirty:
         bstore.save(breaker)
@@ -884,7 +900,17 @@ def export(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
             json|csv|md`.
     """
     parser = _build_export_parser()
-    args = _parse_args(parser, argv)
+    try:
+        args = _parse_args(parser, argv)
+    except SystemExit as exc:
+        # [FR-08] argparse calls `sys.exit(2)` on a `choices` rejection
+        # (e.g. `--format xml`). The handler contract is to *return* the
+        # exit code rather than let SystemExit propagate, so in-process
+        # callers can assert `rc == 2` without rescuing the exception.
+        code = exc.code
+        if isinstance(code, int):
+            return code
+        return 2
 
     store = get_store(use_disk=use_disk)
     tasks = store.all()

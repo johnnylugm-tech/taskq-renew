@@ -20,3 +20,4 @@
 {"ts": 1785894801.228748, "component": "gate:s4:performance", "what": "'pytest-benchmark' produced no score the harness could read", "why": "the agent's number for this dimension was therefore not cross-validated; see the audit file for the raw output"}
 {"ts": 1785898697.9514081, "component": "agent:developer:5", "what": "wall-clock timeout at 600s", "why": ""}
 {"ts": 1785899929.235146, "component": "run-fr-step:CODE-FIX", "what": "max_turns escalated 50 -> 100", "why": "FR-07 CODE-FIX was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}
+{"ts": 1785900848.2840362, "component": "run-fr-step:CODE-FIX", "what": "max_turns escalated 50 -> 100", "why": "FR-02 CODE-FIX was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}

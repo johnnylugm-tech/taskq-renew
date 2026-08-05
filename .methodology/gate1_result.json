@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 5,
-  "fr_id": "FR-08",
+  "fr_id": "FR-07",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,25 +9,25 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed!"
+      "tool_evidence": "All checks passed!\n"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
+      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785900902124\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.711\n    }\n}\n\n"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 77,
+      "tests_passed": 23,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "77 passed in 0.99s. coverage totals: percent_covered=100.0, covered_lines=451/451, missing_lines=0. Required tests present: test_fr08_submit_run_audit_events_share_correlation_id, test_fr08_exports_agree_and_escape_csv_fields (2/2 unique = 100% spec coverage)."
+      "tool_evidence": "collected 23 items\n\n03-development/tests/test_fr07.py .......................                [100%]\n\n============================== 23 passed in 0.81s ==============================\n{\"meta\": {\"format\": 3, \"version\": \"7.15.3\", \"timestamp\": \"2026-08-05T11:35:09.837975\", \"branch_coverage\": false, \"show_contexts\": false}, \"files\": {\"03-development/src/taskq_plus/service/plugins.py\": {\"executed_lines\": [42, 44, 45, 46, 47, 48, 49, 50, 52, 60, 64, 69, 72, 77, 80, 82, 85, 96, 99, 117, 118, 119, 124, 12"
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. exit=0"
+      "tool_evidence": "---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken.\nEXIT=0\n"
     }
   },
   "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
@@ -68,23 +68,23 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "d6e352dc9f6e65cf932a7a0948aba90297a3e01e1a97b061a40450464c91a284",
-      "bytes": 135,
-      "head": "{\"version\": \"1.1.409\", \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
+      "sha256": "f196fd18bf7ee1e11b3f30b8f56ccf0dcd682e7074ac93ab679b4d51fd41314d",
+      "bytes": 250,
+      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785900902124\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.711\n    }\n}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "ec749d137f12bef0d590fd6c7dca7312c354ebec469ac98b8bff41da44433abd",
-      "bytes": 260,
-      "head": "77 passed in 0.99s. coverage totals: percent_covered=100.0, covered_lines=451/451, missing_lines=0. Required tests present: test_fr08_submit_run_audit_events_share_correlation_id, test_fr08_exports_agree_and_escape_csv_fields (2/2 unique = 100% spec coverage)."
+      "sha256": "4cd235b9ea7cec0409e7c1111f117a86e1a64f130a90660ac61d317ce35422ec",
+      "bytes": 500,
+      "head": "collected 23 items\n\n03-development/tests/test_fr07.py .......................                [100%]\n\n============================== 23 passed in 0.81s ==============================\n{\"meta\": {\"format\": 3, \"version\": \"7.15.3\", \"timestamp\": \"2026-08-05T11:35:09.837975\", \"branch_coverage\": false, \"show_contexts\": false}, \"files\": {\"03-development/src/taskq_plus/service/plugins.py\": {\"executed_lines\": [42, 44, 45, 46, 47, 48, 49, 50, 52, 60, 64, 69, 72, 77, 80, 82, 85, 96, 99, 117, 118, 119, 124, 12"
     },
     "architecture_constraints": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "101e2329d6f3366146c39c2e606a77825ba32036451e22c275b5245da8851d8d",
-      "bytes": 191,
-      "head": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. exit=0"
+      "sha256": "6a3728c4b6792cc23d507b71a1feaa5ff138ccf2597c9e490a07de13ef501ca7",
+      "bytes": 256,
+      "head": "---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken.\nEXIT=0"
     }
   },
   "composite_score": 100.0,

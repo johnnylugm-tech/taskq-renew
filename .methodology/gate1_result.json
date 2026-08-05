@@ -78,6 +78,13 @@
       "sha256": "6bfcdb75ec4dda8080e9b55fcfd031e0ecc698fb169354e358b032f7f9e084f5",
       "bytes": 1439,
       "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 342 items\n\n03-development/tests/test_fr01.py ...................................... [ 11%]\n.......................................                                  [ 22%]\n03-development/tests/test_fr02.py ...................................... [ 33%]\n..............................                                           [ 42%]\n03-development/tests/test_fr05.py ...................................... [ 53%]\n............                                                             [ 57%]\n03-development/tests/test_fr06.py ....................                   [ 62%]\n03-development/tests/test_fr07.py ...................................... [ 73%]\n..........                                                               [ 76%]\n03-development/tests/test_fr08.py ...................................... [ 88%]\n.........................................                                [100%]\n"
+    },
+    "architecture_constraints": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "39215f7eaa2fa1294376f5d9dc6eefa8c979a2b06995772f310ecac0ca57e9a9",
+      "bytes": 206,
+      "head": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0."
     }
   },
   "composite_score": 100.0,

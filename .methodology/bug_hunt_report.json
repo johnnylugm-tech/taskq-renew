@@ -26,7 +26,7 @@
       "resolution": {
         "status": "resolved",
         "fix_commit": "affd223d52df574610714e8dea10e2c4c53f8352",
-        "repro_test": "03-development/tests/test_hunt_nfr04_write_through.py::test_hunt_nfr04_tasks_json_redacts_secret and ::test_hunt_nfr04_cache_json_redacts_secret"
+        "repro_test": "03-development/tests/test_hunt_nfr04_write_through.py"
       }
     },
     {
@@ -48,7 +48,7 @@
       "resolution": {
         "status": "resolved",
         "fix_commit": "affd223d52df574610714e8dea10e2c4c53f8352",
-        "repro_test": "03-development/tests/test_hunt_nfr04_write_through.py::test_hunt_nfr04_audit_redacts_plugin_error_secret"
+        "repro_test": "03-development/tests/test_hunt_nfr04_write_through.py"
       }
     }
   ]

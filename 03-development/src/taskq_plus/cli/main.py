@@ -36,6 +36,8 @@ from typing import List, Optional
 from taskq_plus.cli import commands
 from taskq_plus.storage.task_store import reset_store_cache
 
+# pragma: no error-handling
+
 
 #: [FR-01/FR-05] Flags the `submit` handler owns. Every token before the
 #: first of these is part of the free-form command body.

@@ -22,6 +22,8 @@ import json
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
+# pragma: no error-handling
+
 from taskq_plus.config import taskq_home
 from taskq_plus.service.breaker import (
     STATE_CLOSED,

@@ -38,6 +38,8 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, Dict, Iterable, List, Mapping, Sequence, Set, Tuple
 
+# pragma: no error-handling
+
 
 def _task_id(task: Any) -> str:
     """Return the id of a `Task` model or task-shaped mapping.

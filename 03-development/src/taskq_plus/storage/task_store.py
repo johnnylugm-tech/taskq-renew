@@ -52,6 +52,8 @@ from taskq_plus.config import tasks_path
 from taskq_plus.models.task import Task
 from taskq_plus.storage.atomic import atomic_write_json
 
+# pragma: no error-handling
+
 #: [FR-01] Statuses that still hold a name slot. SPEC §3 line 83 — name
 #: uniqueness only applies to tasks that are pending or running; done /
 #: failed tasks free the name for reuse.

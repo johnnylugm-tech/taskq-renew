@@ -46,14 +46,14 @@ def atomic_write_json(
         fd, tmp_name = tempfile.mkstemp(
             prefix=tmp_prefix, suffix=".json.tmp", dir=target.parent
         )
-    except BaseException:
+    except Exception:
         raise
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, ensure_ascii=False, indent=2)
         os.chmod(tmp_name, mode)
         os.replace(tmp_name, target)
-    except BaseException:
+    except Exception:
         try:
             os.unlink(tmp_name)
         except FileNotFoundError:

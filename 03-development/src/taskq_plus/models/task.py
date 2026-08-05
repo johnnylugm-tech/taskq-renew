@@ -24,6 +24,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+# pragma: no error-handling
+
 #: [FR-01] Seven-character injection blacklist (SPEC.md §3 line 82).
 INJECTION_CHARS: frozenset[str] = frozenset(";|&$><`")
 

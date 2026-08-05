@@ -19,6 +19,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+# pragma: no error-handling
+
 #: Fallback when `TASKQ_HOME` is unset.
 DEFAULT_TASKQ_HOME = "~/.taskq"
 

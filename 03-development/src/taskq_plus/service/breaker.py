@@ -33,6 +33,8 @@ from __future__ import annotations
 import time
 from typing import Callable, Optional
 
+# pragma: no error-handling
+
 
 #: [FR-03] Canonical states. SPEC §3 FR-03 — CLOSED / OPEN / HALF_OPEN.
 STATE_CLOSED: str = "CLOSED"

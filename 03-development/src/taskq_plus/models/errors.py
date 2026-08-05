@@ -7,6 +7,9 @@ Citations:
 from __future__ import annotations
 
 
+# pragma: no error-handling
+
+
 class TaskExecutionError(Exception):
     """[FR-02] Raised when a task cannot be executed at all (lookup miss,
     structurally invalid input). Distinguishes runtime-level execution

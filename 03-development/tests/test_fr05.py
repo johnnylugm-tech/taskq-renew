@@ -1312,17 +1312,21 @@ def test_fr05_submit_rejects_existing_cycle_with_exit_five_in_process(taskq_home
     `submit` surfaces it as exit 5 + the cycle path on stderr
     (the `_kahn_order` / `_cycle_path` branch in `submit`). Covers
     lines 362-364."""
-    from taskq_plus.cli import commands
     from taskq_plus.models.task import Task
-    from taskq_plus.storage.task_store import get_store
 
-    # Seed a two-node cycle out-of-band — `submit` rejects the closing
-    # edge, so the only path into the cycle branch is an existing cycle.
-    store = get_store()
-    first = Task(command="echo a")
-    second = Task(command="echo b", depends_on=[first.id])
-    store.add(first.model_copy(update={"depends_on": [second.id]}))
-    store.add(second)
+    # Seed a two-node cycle directly into `tasks.json` (the on-disk
+    # store the `main()` dispatcher reads). `submit` rejects the
+    # closing edge, so the only path into the cycle branch is an
+    # existing cycle persisted out-of-band.
+    a = Task(command="echo a")
+    b = Task(command="echo b", depends_on=[a.id])
+    records = [
+        a.model_copy(update={"depends_on": [b.id]}).model_dump(mode="json"),
+        b.model_dump(mode="json"),
+    ]
+    (taskq_home / "tasks.json").write_text(
+        _json.dumps(records), encoding="utf-8"
+    )
 
     exit_code, _stdout, stderr = _capture_main(["submit", "echo c"])
 
@@ -1369,15 +1373,19 @@ def test_fr05_run_all_returns_zero_on_out_of_band_cycle_in_process(taskq_home):
     """`run --all` against a cyclic persisted graph exits 0 without
     dispatching (the `if remaining: return 0` branch in `_run_all`).
     Covers line 585."""
-    from taskq_plus.cli import commands
     from taskq_plus.models.task import Task
-    from taskq_plus.storage.task_store import get_store
 
-    store = get_store()
-    first = Task(command="echo a")
-    second = Task(command="echo b", depends_on=[first.id])
-    store.add(first.model_copy(update={"depends_on": [second.id]}))
-    store.add(second)
+    # Persist a cyclic graph directly to `tasks.json` so the disk-
+    # backed dispatcher sees it.
+    a = Task(command="echo a")
+    b = Task(command="echo b", depends_on=[a.id])
+    records = [
+        a.model_copy(update={"depends_on": [b.id]}).model_dump(mode="json"),
+        b.model_dump(mode="json"),
+    ]
+    (taskq_home / "tasks.json").write_text(
+        _json.dumps(records), encoding="utf-8"
+    )
 
     exit_code, _stdout, stderr = _capture_main(["run", "--all"])
     assert exit_code == 0, (
@@ -1468,6 +1476,35 @@ def test_fr05_run_all_with_single_worker_dispatches_sequentially_in_process(
 
 
 # NFR-09
+def test_fr05_run_all_single_worker_records_breaker_failure_in_process(
+    taskq_home, monkeypatch
+):
+    """With `TASKQ_MAX_WORKERS=1` a failing task exercises the
+    `elif status in ('failed', 'timeout'): breaker.record_failure()`
+    branch inside the sequential loop. Covers lines 642-643."""
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "1")
+
+    _submit_in_process("false")
+
+    exit_code, _stdout, stderr = _capture_main(["run", "--all"])
+    assert exit_code == 0, (
+        f"`run --all` with 1 worker must exit 0 even when a task "
+        f"fails; got {exit_code}; stderr={stderr!r}"
+    )
+
+    breaker_path = taskq_home / "breaker.json"
+    assert breaker_path.exists(), (
+        f"the breaker must be persisted after a single-worker "
+        f"failure; missing {breaker_path}"
+    )
+    payload = _json.loads(breaker_path.read_text(encoding="utf-8"))
+    assert payload.get("failure_count", 0) >= 1, (
+        f"a single failing task in the sequential loop must record "
+        f"failure_count >= 1; got {payload!r}"
+    )
+
+
+# NFR-09
 def test_fr05_run_all_multi_worker_records_failure_in_process(taskq_home):
     """With `TASKQ_MAX_WORKERS > 1` a failing task inside the layer's
     `ThreadPoolExecutor` block exercises the
@@ -1500,18 +1537,23 @@ def test_fr05_export_in_process_renders_json_csv_md_in_process(taskq_home):
     (lines 866-878) share. Covers all of those lines."""
     from taskq_plus.cli import commands
 
+    # Submit through the in-process dispatcher so the on-disk store
+    # has at least one task — the csv/md renderers emit an empty
+    # payload when records is empty, and we want a populated export.
     _submit_in_process("echo hi")
 
     for fmt in ("json", "csv", "md"):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            exit_code = commands.export(["--format", fmt], use_disk=False)
+            exit_code = commands.export(["--format", fmt], use_disk=True)
         assert exit_code == 0, (
             f"export --format {fmt} must exit 0; got {exit_code}; "
             f"stderr={err.getvalue()!r}"
         )
-        assert out.getvalue(), (
-            f"export --format {fmt} must write to stdout; got empty output"
+        rendered = out.getvalue()
+        assert rendered, (
+            f"export --format {fmt} must write a non-empty payload to "
+            f"stdout; got {rendered!r}"
         )
 
 
@@ -1532,8 +1574,8 @@ def test_fr05_main_dispatches_export_in_process(taskq_home):
         f"stderr={err.getvalue()!r}"
     )
     assert buf.getvalue(), (
-        f"main(['export', '--format', 'json']) must write JSON to stdout; "
-        f"got empty output"
+        "main(['export', '--format', 'json']) must write JSON to stdout; "
+        "got empty output"
     )
 
 

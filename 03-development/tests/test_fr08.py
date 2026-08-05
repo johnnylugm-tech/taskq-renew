@@ -764,6 +764,21 @@ def test_fr08_export_returns_2_when_systemexit_code_is_not_int(monkeypatch):
     assert rc == 2
 
 
+# NFR-09
+def test_fr08_export_unknown_format_returns_argparse_exit_code():
+    """[FR-08] `commands.export` returns argparse's exit code on a
+    `choices` rejection (`--format xml` → argparse raises
+    `SystemExit(2)`); the integer code path in the handler is reached.
+    """
+    from taskq_plus.cli.commands import export
+
+    with _capture_io() as (_, err_buf):
+        rc = export(["--format", "xml"], use_disk=False)
+    assert rc == 2
+    # argparse prints "argument --format: invalid choice: 'xml'" to stderr.
+    assert "invalid choice" in err_buf.getvalue()
+
+
 # NFR-04 / NFR-09
 def test_fr08_inprocess_commands_export_via_cli_main(tmp_path, monkeypatch, capsys):
     """[FR-08] `python -m taskq_plus export --format ...` dispatches in-process."""

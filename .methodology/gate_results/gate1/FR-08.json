@@ -1,6 +1,6 @@
 {
   "gate": 1,
-  "phase": 7,
+  "phase": 8,
   "fr_id": "FR-02",
   "overall_score": 100.0,
   "quality_complete": true,
@@ -9,82 +9,25 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed!"
+      "tool_evidence": "All checks passed!\n"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\":\"1.1.409\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.665}}"
+      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785919217407\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.703\n    }\n}\n"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 322,
+      "tests_passed": 347,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================= 322 passed in 13.24s =============================\nCoverage (FR-02): cli/commands.py=100% (360/360), service/executor.py=100% (68/68), Combined=100% (428/428)\nAll 5 required tests present: test_fr02_run_done_reproduces_result, test_fr02_run_timeout_returns_exit_4, test_fr02_source_contains_no_shell_true, test_fr02_run_all_concurrent_write_is_atomic, test_fr02_nonzero_exit_marks_task_failed"
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 347 items\n\n03-development/tests/t"
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT)"
-    }
-  },
-  "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
-  "enforcer_surface": {
-    "core/quality_gate": "2429c856619c1f8afb3c0ff6e09c27f5e4765e0c",
-    "harness/harness_bridge.py": "92bca94bdae19024ad1c2ad97c50a1d645dcf25d",
-    "harness/gate_configs": "8735bb31aaa3bd32117548e651ec1c605a255f10"
-  },
-  "evidence_digest": {
-    "mutation_testing::setup.cfg": {
-      "source": "setup.cfg (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "2042aa7a848ef0252794d6a488aad055c926e29a53de80cc496e3b33c06e8e16",
-      "bytes": 2332,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[tool:pytest]\n# The harness's mutation-test workdir only copies setup.cfg (not pytest.ini),\n# so the framework's promotion (mutation_enforcer.py:388-424) rewrites this\n# entry to an absolute path that pytest can resolve inside its temp dir.\n# Without it mutmut's baseline test-suite run fails collection with\n# `ModuleNotFoundError: taskq_plus` because no `from taskq_plus...` import\n# can be resolved at collection time.\n#"
-    },
-    "test_coverage::pytest.ini": {
-      "source": "pytest.ini (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "54b69fe4dbee31b5dd7974ad6898a8ec3ba0e98967aa25bfe5f0b639e9d4c0e8",
-      "bytes": 1485,
-      "head": "[pytest]\n# The harness vendored under `harness/` carries its own test suite\n# (`harness/tests/`) which imports `harness_cli` and crashes on\n# Python <3.10 with `SystemExit(1)`. When the gate's cross-validation\n# invokes `pytest {root}` for `pytest-benchmark` (or any test-family\n# tool that takes the project root as a path), pytest would otherwise\n# discover the harness tests alongside the project tests and abort\n# collection. Keep the harness suite out of root-level pytest runs.\n# Explicit `-p pytest_benchmark` is REQUIRED: the mutation-testing\n# framework (mutation_enforcer.py:494) sets PYTEST_DISABLE_PLUGIN_AUTOLOAD=1\n# in mutmut's subprocess env, and only re-enables xdist/pytest_cov based\n# on the resolved runner. Without this, the baseline test-suite run\n# errors every benchmark with \"fixture 'benchmark' not found\" and\n# mutmut reports score=null. Loading the plugin here is harmless for\n# non-benchmark tests — pytest-benchmark only triggers on the fixture.\naddopts =\n    --ignore=harness/tests\n    --ignore=harness/tests-cli\n    -p benchmark\n# `taskq_plus` lives under `03-development/src`; without this pytest"
-    },
-    "test_coverage::setup.cfg": {
-      "source": "setup.cfg (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "2042aa7a848ef0252794d6a488aad055c926e29a53de80cc496e3b33c06e8e16",
-      "bytes": 2332,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[tool:pytest]\n# The harness's mutation-test workdir only copies setup.cfg (not pytest.ini),\n# so the framework's promotion (mutation_enforcer.py:388-424) rewrites this\n# entry to an absolute path that pytest can resolve inside its temp dir.\n# Without it mutmut's baseline test-suite run fails collection with\n# `ModuleNotFoundError: taskq_plus` because no `from taskq_plus...` import\n# can be resolved at collection time.\n#"
-    },
-    "linting": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
-      "bytes": 18,
-      "head": "All checks passed!"
-    },
-    "type_safety": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "b4a2c6550e0f2d6fb629d03ec5247d3bde01ac9a2eb9a5d2c97a696763b58d6f",
-      "bytes": 147,
-      "head": "{\"version\":\"1.1.409\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.665}}"
-    },
-    "test_coverage": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "7c83c4fc3cda51467ad96209e3e7f4e46cad07d3745c000626fd66ac6fbf5585",
-      "bytes": 422,
-      "head": "============================= 322 passed in 13.24s =============================\nCoverage (FR-02): cli/commands.py=100% (360/360), service/executor.py=100% (68/68), Combined=100% (428/428)\nAll 5 required tests present: test_fr02_run_done_reproduces_result, test_fr02_run_timeout_returns_exit_4, test_fr02_source_contains_no_shell_true, test_fr02_run_all_concurrent_write_is_atomic, test_fr02_nonzero_exit_marks_task_failed"
-    },
-    "architecture_constraints": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "db9e37dac1b615073c6486911dbcd85bbe4f6c723a08d057eaf95f7d8dcd62e9",
-      "bytes": 149,
-      "head": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT)"
+      "tool_evidence": "\n╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐\n╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │\n ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗\n ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝\n╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║\n╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝\n  └──▶║║                    ▲ \n      ╚╝────────────────────┘\n\n\n---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 "
     }
   },
   "composite_score": 100.0,

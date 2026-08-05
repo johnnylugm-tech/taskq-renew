@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 5,
-  "fr_id": "FR-03",
+  "fr_id": "FR-04",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -14,18 +14,20 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{ \"version\": \"1.1.409\", \"time\": \"1785908237433\", \"generalDiagnostics\": [], \"summary\": { \"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.676 } }"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785908239359\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.639}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 89,
+      "tests_passed": 21,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\ncollected 89 items\n\n03-development/tests/test_fr03.py .........................              [ 28%]\n03-development/tests/test_fr02.py ...................................... [ 70%]\n..........................                                               [100%]\n\n============================== 89 passed in 5.72s ==============================\nservice/breaker"
+      "tool_evidence": "21 passed in 2.63s\n03-development/src/taskq_plus/service/cache.py            44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py      29      0   100%\nTOTAL                                                     73      0   100%\n21 passed, 0 failed, 0 skipped"
     },
     "architecture_constraints": {
-      "score": 100.0
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "Analyzed 23 files, 30 dependencies. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. Contracts: 4 kept, 0 broken."
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -66,16 +68,23 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "540798aa774a86c72eb59f140ba49f3bfaf20fa7ef7f02965560cb2d3484d320",
-      "bytes": 190,
-      "head": "{ \"version\": \"1.1.409\", \"time\": \"1785908237433\", \"generalDiagnostics\": [], \"summary\": { \"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.676 } }"
+      "sha256": "bdaa01eb24e114c9e99b66e0fcfd77773e0f451ffd4eabfaec550250135fef34",
+      "bytes": 186,
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785908239359\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.639}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "562b5279b6e2c588d74e26252feb12b2f606200d074868a911fcb9f273b6a13a",
-      "bytes": 500,
-      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\ncollected 89 items\n\n03-development/tests/test_fr03.py .........................              [ 28%]\n03-development/tests/test_fr02.py ...................................... [ 70%]\n..........................                                               [100%]\n\n============================== 89 passed in 5.72s ==============================\nservice/breaker"
+      "sha256": "fe35ac7df6d9309327b89a5fee3d66b22c1daf7c6e8c3247d17cac610962b592",
+      "bytes": 274,
+      "head": "21 passed in 2.63s\n03-development/src/taskq_plus/service/cache.py            44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py      29      0   100%\nTOTAL                                                     73      0   100%\n21 passed, 0 failed, 0 skipped"
+    },
+    "architecture_constraints": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "97128a292b6224e18b983bab36f8e599b35cbd7e8d40f1a6154e7e92c0751508",
+      "bytes": 184,
+      "head": "Analyzed 23 files, 30 dependencies. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT. Contracts: 4 kept, 0 broken."
     }
   },
   "composite_score": 100.0,

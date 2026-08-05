@@ -23,3 +23,4 @@
 {"ts": 1785900848.2840362, "component": "run-fr-step:CODE-FIX", "what": "max_turns escalated 50 -> 100", "why": "FR-02 CODE-FIX was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}
 {"ts": 1785917019.2236412, "component": "agent:developer:7", "what": "wall-clock timeout at 600s", "why": ""}
 {"ts": 1785917643.5889049, "component": "agent:developer:7", "what": "wall-clock timeout at 600s", "why": ""}
+{"ts": 1785918249.142959, "component": "run-fr-step:CODE-FIX", "what": "max_turns escalated 50 -> 100", "why": "FR-07 CODE-FIX was cut off at its turn ceiling; re-dispatching at the same ceiling cannot finish what did not fit"}

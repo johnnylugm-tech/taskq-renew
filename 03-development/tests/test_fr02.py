@@ -1067,7 +1067,6 @@ def test_fr02_inprocess_submit_rejects_cycle_with_exit_5(taskq_home):
     """
     from taskq_plus.cli import commands
     from taskq_plus.storage.task_store import (
-        get_store,
         make_disk_store,
         reset_store_cache,
     )
@@ -1103,7 +1102,6 @@ def test_fr02_inprocess_submit_rejects_chain_deeper_than_cap(
     from taskq_plus.cli import commands
     from taskq_plus.models.task import Task
     from taskq_plus.storage.task_store import (
-        get_store,
         make_disk_store,
         reset_store_cache,
     )
@@ -1301,7 +1299,7 @@ def test_fr02_inprocess_run_all_marks_task_blocked_on_failed_prereq(
     reset_store_cache()
     store = make_disk_store()
     # First task: a prereq that fails.
-    failed_task = store.add(Task(id="aaaa0001", command="false"))
+    store.add(Task(id="aaaa0001", command="false"))
     # Second task: depends on the failed prereq.
     store.add(Task(id="bbbb0002", command="echo b", depends_on=["aaaa0001"]))
 
@@ -1338,7 +1336,6 @@ def test_fr02_inprocess_run_all_records_failure_for_failing_command(
     from taskq_plus.cli import commands
     from taskq_plus.models.task import Task
     from taskq_plus.storage.task_store import (
-        get_store,
         make_disk_store,
         reset_store_cache,
     )

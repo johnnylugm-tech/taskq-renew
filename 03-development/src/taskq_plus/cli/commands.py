@@ -907,7 +907,13 @@ def export(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         # (e.g. `--format xml`). The handler contract is to *return* the
         # exit code rather than let SystemExit propagate, so in-process
         # callers can assert `rc == 2` without rescuing the exception.
-        return exc.code
+        # `exc.code` is normally an `int`, but defensive code (or a
+        # future argparse quirk) could surface a non-int — collapse
+        # those to `2` so the contract still holds.
+        code = exc.code
+        if isinstance(code, int):
+            return code
+        return 2
 
     store = get_store(use_disk=use_disk)
     tasks = store.all()

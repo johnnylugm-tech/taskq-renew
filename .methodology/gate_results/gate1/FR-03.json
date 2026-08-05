@@ -9,32 +9,30 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed!\n"
+      "tool_evidence": "All checks passed!"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785898725048\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.703}}"
+      "tool_evidence": "{ \"version\": \"1.1.409\", \"time\": \"1785908237433\", \"generalDiagnostics\": [], \"summary\": { \"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.676 } }"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 25,
+      "tests_passed": 89,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================== 25 passed in 1.86s ============================== coverage 100.0% on FR-03 files (totals: covered_lines=150, num_statements=150, percent_covered=100.0). breaker.py 100% (32/32), executor.py 100% (68/68), breaker_store.py 100% (50/50). All 5/5 spec-required tests present and passing: test_fr03_transient_failure_succeeds_after_retry, test_fr03_breaker_open_rejects_run, test_fr03_breaker_cooldown_closes_breaker, test_fr03_breaker_recovery_within_cooldown_bound, test_fr03_retry_backoff_sleeps_exponentially. 0 failed, 0 skipped."
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\ncollected 89 items\n\n03-development/tests/test_fr03.py .........................              [ 28%]\n03-development/tests/test_fr02.py ...................................... [ 70%]\n..........................                                               [100%]\n\n============================== 89 passed in 5.72s ==============================\nservice/breaker"
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "framework_override": true,
-      "tool_output": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "tool_evidence": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0 with PYTHONPATH=03-development/src."
+      "tool_evidence": "---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken.\n(lint-imports exit 0, PYTHONPATH=03-development/src)"
     }
   },
-  "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
+  "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
   "enforcer_surface": {
-    "core/quality_gate": "88d4ab41d48bbd3aa1224cbcdd6d5a6be780dc08",
+    "core/quality_gate": "2429c856619c1f8afb3c0ff6e09c27f5e4765e0c",
     "harness/harness_bridge.py": "92bca94bdae19024ad1c2ad97c50a1d645dcf25d",
     "harness/gate_configs": "8735bb31aaa3bd32117548e651ec1c605a255f10"
   },
@@ -70,23 +68,23 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "6a8c51f1ff964810121abbd2fc891d74b8ee7ecd0467ae1b68fb1b7458cdd465",
-      "bytes": 186,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785898725048\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.703}}"
+      "sha256": "540798aa774a86c72eb59f140ba49f3bfaf20fa7ef7f02965560cb2d3484d320",
+      "bytes": 190,
+      "head": "{ \"version\": \"1.1.409\", \"time\": \"1785908237433\", \"generalDiagnostics\": [], \"summary\": { \"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.676 } }"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "0565b13d9c8d405bdabfef60939eeb64158b423d4400572a2076fcdb6ab307ff",
-      "bytes": 560,
-      "head": "============================== 25 passed in 1.86s ============================== coverage 100.0% on FR-03 files (totals: covered_lines=150, num_statements=150, percent_covered=100.0). breaker.py 100% (32/32), executor.py 100% (68/68), breaker_store.py 100% (50/50). All 5/5 spec-required tests present and passing: test_fr03_transient_failure_succeeds_after_retry, test_fr03_breaker_open_rejects_run, test_fr03_breaker_cooldown_closes_breaker, test_fr03_breaker_recovery_within_cooldown_bound, test_fr03_retry_backoff_sleeps_exponentially. 0 failed, 0 skipped."
+      "sha256": "562b5279b6e2c588d74e26252feb12b2f606200d074868a911fcb9f273b6a13a",
+      "bytes": 500,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\ncollected 89 items\n\n03-development/tests/test_fr03.py .........................              [ 28%]\n03-development/tests/test_fr02.py ...................................... [ 70%]\n..........................                                               [100%]\n\n============================== 89 passed in 5.72s ==============================\nservice/breaker"
     },
     "architecture_constraints": {
-      "source": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "kind": "file",
-      "sha256": "7ac4bde5fda0f1939d01dac7db6bf5be0e71052c11bafe2b0a3267d34482aed8",
-      "bytes": 924,
-      "head": "\n╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐\n╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │\n ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗\n ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝\n╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║\n╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝\n  └──▶║║                    ▲ \n      ╚╝────────────────────┘\n\n\n---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT"
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "d0bc2d4cba824a285bad61704296ac6219f080cec582a11286ef99025f97ed60",
+      "bytes": 302,
+      "head": "---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken.\n(lint-imports exit 0, PYTHONPATH=03-development/src)"
     }
   },
   "composite_score": 100.0,

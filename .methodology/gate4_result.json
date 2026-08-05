@@ -222,23 +222,23 @@
     "linting": {
       "source": ".sessi-work/round_1/tools/linting.txt",
       "kind": "file",
-      "sha256": "b33d2e1cfadddad7f1eaa09655a96efb42c9a9b07b48583da719fe03097653c9",
-      "bytes": 35,
-      "head": "All checks passed!\nexit=0\nJSON: []"
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19,
+      "head": "All checks passed!"
     },
     "type_safety": {
       "source": ".sessi-work/round_1/tools/type_safety.txt",
       "kind": "file",
-      "sha256": "98b100282f7cf3f909183ef5f723664a1e9cea8da825e10481c1787dc1ffe5db",
+      "sha256": "428ce7c438f69d72f8972b04a970cab996f3bdc2ec8ed007956d08b3df41e14b",
       "bytes": 252,
-      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785909438615\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.674\n    }\n}\n"
+      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785914937905\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.633\n    }\n}\n"
     },
     "test_coverage": {
       "source": ".sessi-work/round_1/tools/test_coverage.txt",
       "kind": "file",
-      "sha256": "6b6f9442c8ae8d70f0692df8925350a63e8225af0c474af717f59608e2478a25",
-      "bytes": 3474,
-      "head": "03-development/src/taskq_plus/observability/export.py        51      0   100%\n03-development/src/taskq_plus/service/__init__.py             1      0   100%\n03-development/src/taskq_plus/service/breaker.py             32      0   100%\n03-development/src/taskq_plus/service/cache.py               44      0   100%\n03-development/src/taskq_plus/service/dag.py                 46      0   100%\n03-development/src/taskq_plus/service/executor.py            68      0   100%\n03-development/src/taskq_plus/service/plugins.py            102      0   100%\n03-development/src/taskq_plus/storage/__init__.py             3      0   100%\n03-development/src/taskq_plus/storage/atomic.py              33      0   100%\n03-development/src/taskq_plus/storage/breaker_store.py       50      0   100%\n03-development/src/taskq_plus/storage/cache_store.py         29      0   100%\n03-development/src/taskq_plus/storage/task_store.py         119      0   100%\n-----------------------------------------------------------------------------\nTOTAL                                                      1122      0   100%\n\n----------------------------------------------------------------------------------------------------------- benchmark: 4 tests ----------------------------------------------------------------------------------------------------------\nName (time in ns)                           Min                        Max                    Mean                  StdDev                  Median                    IQR            Outliers  OPS (Kops/s)            Rounds  Iterations\n-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\ntest_bench_task_store_all              170.7987 (1.0)           4,837.4990 (1.0)          197.4969 (1.0)           24.5335 (1.0)          195.8018 (1.0)          12.5001 (1.0)     4222;4766    5,063.3699 (1.0)      115942          10\ntest_bench_task_sto"
+      "sha256": "c607f3c79edd615b4ceb695b7fe43eab00d0bbc0e6ec974ef42508fec96ee0fa",
+      "bytes": 3651,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 316 items\n\n03-development/tests/test_fr02.py ...................................... [ 12%]\n..........................                                               [ 20%]\n03-development/tests/test_fr01.py ...................................... [ 32%]\n......................................                                   [ 44%]\n03-development/tests/test_fr03.py .........................              [ 52%]\n03-development/tests/test_fr05.py ...................................... [ 64%]\n............                                                             [ 68%]\n03-development/tests/test_fr07.py .......................                [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n........................................                                 [100%]\n\n================================ tests coverage ================================"
     },
     "security": {
       "source": ".sessi-work/round_1/tools/security.txt",
@@ -320,18 +320,12 @@
   },
   "crg_review_context": {
     "status": "ok",
-    "summary": "Review context for 7 changed file(s):\n  - Risk: high\n  - 29 impacted nodes in 8 files",
-    "risk": "high",
-    "changed_file_count": 7,
-    "impacted_file_count": 8,
-    "key_entities": [
-      "/Users/johnny/projects/taskq-renew/03-development/tests/test_fr02.py",
-      "_capture_run",
-      "_capture_submit",
-      "_read_tasks_json",
-      "_record_sleep"
-    ],
-    "test_gaps": 2,
+    "summary": "Review context for 17 changed file(s):\n  - Risk: low\n  - 0 impacted nodes in 0 files",
+    "risk": "low",
+    "changed_file_count": 17,
+    "impacted_file_count": 0,
+    "key_entities": [],
+    "test_gaps": 0,
     "next_tool_suggestions": [
       "detect_changes",
       "get_affected_flows",
@@ -339,26 +333,20 @@
     ],
     "context_savings": {
       "estimated": true,
-      "saved_tokens": 24409,
+      "saved_tokens": 17674,
       "saved_percent": 100
     }
   },
   "crg_impact_radius": {
     "status": "ok",
-    "summary": "Blast radius for 7 changed file(s):\n  - 72 nodes directly changed\n  - 29 nodes impacted (within 2 hops)\n  - 8 additional files affected",
-    "risk": "high",
-    "impacted_file_count": 8,
-    "key_entities": [
-      "_split_submit_tokens",
-      "main",
-      "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/config.py",
-      "taskq_home",
-      "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/models/task.py"
-    ],
+    "summary": "Blast radius for 17 changed file(s):\n  - 0 nodes directly changed\n  - 0 nodes impacted (within 2 hops)\n  - 0 additional files affected",
+    "risk": "low",
+    "impacted_file_count": 0,
+    "key_entities": [],
     "truncated": false,
     "context_savings": {
       "estimated": true,
-      "saved_tokens": 24406,
+      "saved_tokens": 17687,
       "saved_percent": 100
     }
   },

@@ -1278,6 +1278,266 @@ def test_fr05_run_all_with_no_pending_returns_0_in_process(taskq_home):
 
 
 # ---------------------------------------------------------------------------
+# Additional coverage — bring commands.py and main.py to >=80%
+# ---------------------------------------------------------------------------
+# The cases below target the remaining uncovered branches in the FR-05
+# in-process surface: the `submit` cycle / depth-cap pre-flight checks,
+# the `_run_all` blocked-task / single-worker / multi-worker branches,
+# `_utcnow()` (the timestamp used by the blocked path), the FR-08
+# `export` dispatcher (parser + handler + cli.main export branch), and
+# the new in-process plugin rejection template.
+
+
+# NFR-09
+def test_fr05_utcnow_is_aware_utc_in_process(taskq_home):
+    """`commands._utcnow()` returns an aware UTC timestamp used by the
+    `blocked` row's `finished_at` field. Covers line 216."""
+    from taskq_plus.cli import commands
+
+    now = commands._utcnow()
+    assert now.tzinfo is not None, (
+        f"_utcnow() must produce an aware datetime; got tzinfo={now.tzinfo!r}"
+    )
+    # The `datetime.now(timezone.utc)` timezone is `UTC` (a fixed
+    # offset of 0); pin it so a future regression to a naive
+    # `datetime.utcnow()` (deprecated, naive) is caught.
+    assert now.utcoffset().total_seconds() == 0, (
+        f"_utcnow() must use UTC; got offset={now.utcoffset()!r}"
+    )
+
+
+# NFR-09
+def test_fr05_submit_rejects_existing_cycle_with_exit_five_in_process(taskq_home):
+    """When a cycle is already persisted in the store, the next
+    `submit` surfaces it as exit 5 + the cycle path on stderr
+    (the `_kahn_order` / `_cycle_path` branch in `submit`). Covers
+    lines 362-364."""
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import get_store
+
+    # Seed a two-node cycle out-of-band — `submit` rejects the closing
+    # edge, so the only path into the cycle branch is an existing cycle.
+    store = get_store()
+    first = Task(command="echo a")
+    second = Task(command="echo b", depends_on=[first.id])
+    store.add(first.model_copy(update={"depends_on": [second.id]}))
+    store.add(second)
+
+    exit_code, _stdout, stderr = _capture_main(["submit", "echo c"])
+
+    assert exit_code == 5, (
+        f"a pre-existing cycle must exit 5 on submit; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+    assert "dependency cycle" in stderr, (
+        f"stderr must announce the cycle; got {stderr!r}"
+    )
+    assert "→" in stderr, (
+        f"the cycle path must be rendered with '→'; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr05_submit_rejects_chain_deeper_than_cap_in_process(
+    taskq_home, monkeypatch
+):
+    """Submitting into a chain already past `TASKQ_MAX_DAG_DEPTH`
+    surfaces the depth-cap rejection (line 369-372)."""
+    # Build a chain A -> B via real submits so the depth counter goes
+    # through `_chain_depths` for the next submission.
+    a_id = _submit_in_process("echo a")
+    _submit_in_process("echo b", "--after", a_id)
+
+    monkeypatch.setenv("TASKQ_MAX_DAG_DEPTH", "1")
+
+    exit_code, _stdout, stderr = _capture_main(
+        ["submit", "echo c", "--after", a_id]
+    )
+
+    assert exit_code == 5, (
+        f"a chain deeper than the cap must exit 5; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+    assert "dependency chain too deep" in stderr, (
+        f"stderr must report the cap breach; got {stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_all_returns_zero_on_out_of_band_cycle_in_process(taskq_home):
+    """`run --all` against a cyclic persisted graph exits 0 without
+    dispatching (the `if remaining: return 0` branch in `_run_all`).
+    Covers line 585."""
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import get_store
+
+    store = get_store()
+    first = Task(command="echo a")
+    second = Task(command="echo b", depends_on=[first.id])
+    store.add(first.model_copy(update={"depends_on": [second.id]}))
+    store.add(second)
+
+    exit_code, _stdout, stderr = _capture_main(["run", "--all"])
+    assert exit_code == 0, (
+        f"`run --all` against a cyclic graph must exit 0 without "
+        f"dispatching; got {exit_code}; stderr={stderr!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_all_skips_non_pending_tasks_in_process(taskq_home):
+    """`_run_all` skips tasks whose `status` is already non-`pending`
+    (e.g. an earlier `done` row when new submits land in the same
+    session). Covers line 598."""
+    first = _submit_in_process("echo first")
+    _submit_in_process("echo second")
+
+    # Execute the first task so it transitions out of `pending`.
+    run_exit, _stdout, _stderr = _capture_main(["run", first])
+    assert run_exit == 0, (
+        f"setup run must succeed; got {run_exit}"
+    )
+
+    # `run --all` must dispatch the still-pending task and skip the
+    # already-`done` one (the `if task.status != 'pending': continue`
+    # branch on line 598).
+    all_exit, _stdout, _stderr = _capture_main(["run", "--all"])
+    assert all_exit == 0, (
+        f"`run --all` must exit 0; got {all_exit}; stderr={_stderr!r}"
+    )
+
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    assert records[first]["status"] == "done", (
+        f"the previously-done task must remain done; got {records[first]['status']!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_all_marks_blocked_task_when_prereq_failed_in_process(taskq_home):
+    """When a prerequisite fails, downstream tasks are persisted as
+    `blocked` and skipped (the `_utcnow` + `store.update` blocked-mark
+    branch). Covers lines 606-622 and 626."""
+    # A failing task + a downstream that depends on it.
+    a_id = _submit_in_process("false")
+    b_id = _submit_in_process("echo b", "--after", a_id)
+
+    # Run A so its status becomes `failed`.
+    run_exit, _stdout, _stderr = _capture_main(["run", a_id])
+    assert run_exit == 0, f"run A must succeed; got {run_exit}"
+
+    # Now run --all: B should be blocked (prereq A is non-`done`).
+    all_exit, _stdout, _stderr = _capture_main(["run", "--all"])
+    assert all_exit == 0, f"run --all must exit 0; got {all_exit}"
+
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    assert records[b_id]["status"] == "blocked", (
+        f"B must be marked blocked when its prereq failed; got "
+        f"{records[b_id]['status']!r}"
+    )
+    assert records[b_id]["finished_at"] is not None, (
+        f"a blocked row must carry a finished_at timestamp; got "
+        f"{records[b_id].get('finished_at')!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_all_with_single_worker_dispatches_sequentially_in_process(
+    taskq_home, monkeypatch
+):
+    """`TASKQ_MAX_WORKERS=1` collapses `_run_all` to the sequential
+    `max_workers == 1` branch. Covers lines 635-644 (the
+    `for task in runnable:` sequential loop)."""
+    monkeypatch.setenv("TASKQ_MAX_WORKERS", "1")
+
+    a_id = _submit_in_process("echo a")
+    _submit_in_process("echo b")
+
+    exit_code, _stdout, stderr = _capture_main(["run", "--all"])
+    assert exit_code == 0, (
+        f"`run --all` with max_workers=1 must exit 0; got {exit_code}; "
+        f"stderr={stderr!r}"
+    )
+
+    records = {r["id"]: r for r in _read_tasks_json(taskq_home)}
+    assert records[a_id]["status"] == "done", (
+        f"`run --all` with 1 worker must still execute every pending "
+        f"task; got {records[a_id]['status']!r}"
+    )
+
+
+# NFR-09
+def test_fr05_run_all_multi_worker_records_failure_in_process(taskq_home):
+    """With `TASKQ_MAX_WORKERS > 1` a failing task inside the layer's
+    `ThreadPoolExecutor` block exercises the
+    `elif status in ('failed', 'timeout'): breaker.record_failure()`
+    branch. Covers line 655-656."""
+    # Two failing tasks at the same depth (independent roots) so the
+    # thread pool sees both.
+    _submit_in_process("false")
+    _submit_in_process("false")
+
+    exit_code, _stdout, stderr = _capture_main(["run", "--all"])
+    assert exit_code == 0, f"`run --all` must exit 0; got {exit_code}"
+
+    breaker_path = taskq_home / "breaker.json"
+    assert breaker_path.exists(), (
+        f"the breaker must be persisted after a multi-worker failure; "
+        f"missing {breaker_path}"
+    )
+    payload = _json.loads(breaker_path.read_text(encoding="utf-8"))
+    assert payload.get("failure_count", 0) >= 2, (
+        f"two failing tasks in the worker pool must record failure_count >= 2; "
+        f"got {payload!r}"
+    )
+
+
+# NFR-09
+def test_fr05_export_in_process_renders_json_csv_md_in_process(taskq_home):
+    """`commands.export` runs the full parser + handler path that
+    `_build_export_parser` (lines 834-844) and the `export` body
+    (lines 866-878) share. Covers all of those lines."""
+    from taskq_plus.cli import commands
+
+    _submit_in_process("echo hi")
+
+    for fmt in ("json", "csv", "md"):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            exit_code = commands.export(["--format", fmt], use_disk=False)
+        assert exit_code == 0, (
+            f"export --format {fmt} must exit 0; got {exit_code}; "
+            f"stderr={err.getvalue()!r}"
+        )
+        assert out.getvalue(), (
+            f"export --format {fmt} must write to stdout; got empty output"
+        )
+
+
+# NFR-04 / NFR-09
+def test_fr05_main_dispatches_export_in_process(taskq_home):
+    """`main(["export", "--format", "json"])` reaches the
+    `args.command == "export"` branch (line 178 in main.py) and the
+    `commands.export` handler."""
+    from taskq_plus.cli.main import main
+
+    _submit_in_process("echo hi")
+
+    buf, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+        exit_code = main(["export", "--format", "json"])
+    assert exit_code == 0, (
+        f"main(['export', '--format', 'json']) must exit 0; got {exit_code}; "
+        f"stderr={err.getvalue()!r}"
+    )
+    assert buf.getvalue(), (
+        f"main(['export', '--format', 'json']) must write JSON to stdout; "
+        f"got empty output"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Coverage helpers
 # ---------------------------------------------------------------------------
 

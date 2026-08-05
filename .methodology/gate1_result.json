@@ -1,8 +1,8 @@
 {
   "gate": 1,
   "phase": 4,
-  "fr_id": "FR-05",
-  "overall_score": 94.22,
+  "fr_id": "FR-06",
+  "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
   "breakdown": {
@@ -14,70 +14,18 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785891763138\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.656}}"
+      "tool_evidence": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785891917022\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.642}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 39,
+      "tests_passed": 20,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "pytest 03-development/tests/test_fr05.py --cov=03-development/src --cov-report=term-missing: 39 passed in 4.07s. 0 failed. Coverage: cli/main.py 98% (62/63), cli/commands.py 88% (304/345), TOTAL 83% (1104 stmts, 188 miss). spec_cov_pct=100% (9/9 required tests present and pass - test_fr05_status_json_contains_all_task_fields, test_fr05_clear_removes_all_data_files, test_fr05_all_exit_codes_are_reachable[exit0..exit6]). score=min(coverage_pct=83, spec_cov_pct=100)=83"
+      "tool_evidence": "coverage run -m pytest 03-development/tests/test_fr06.py: 20 passed in 2.06s. 0 failed. Coverage FR-scoped (dag.py, task.py): 100% (dag 46/46, task 47/47). spec_cov_pct=100% (3/3 required tests present and pass - test_fr06_run_all_respects_dependency_order_and_blocks, test_fr06_cycle_submission_returns_cycle_path, test_fr06_dag_depth_cap_rejects_deep_chain). score=min(coverage_pct=100, spec_cov_pct=100)=100"
     },
     "architecture_constraints": {
-      "score": 100.0,
-      "threshold": 100,
-      "tool_evidence": "lint-imports (PYTHONPATH=03-development/src:.) exit=0: Analyzed 23 files, 29 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT"
-    }
-  },
-  "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
-  "enforcer_surface": {
-    "core/quality_gate": "88d4ab41d48bbd3aa1224cbcdd6d5a6be780dc08",
-    "harness/harness_bridge.py": "92bca94bdae19024ad1c2ad97c50a1d645dcf25d",
-    "harness/gate_configs": "8735bb31aaa3bd32117548e651ec1c605a255f10"
-  },
-  "evidence_digest": {
-    "mutation_testing::setup.cfg": {
-      "source": "setup.cfg (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
-      "bytes": 1380,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
-    },
-    "test_coverage::setup.cfg": {
-      "source": "setup.cfg (score-altering exclusions)",
-      "kind": "file",
-      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
-      "bytes": 1380,
-      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
-    },
-    "linting": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "56201fd273620c8a16378ad1cd47f399b492f937b74d578c27bfcd28417d3587",
-      "bytes": 94,
-      "head": "ruff check 03-development/src/ --extend-ignore RUF001,RUF002,RUF003 exit=0: All checks passed!"
-    },
-    "type_safety": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "d016e11edffdeb3696d9b6464bd4cf1c1e7e59ead572df780b6dfb61733603e4",
-      "bytes": 233,
-      "head": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785891763138\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.656}}"
-    },
-    "test_coverage": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "67dc3888e79aa5b3f656497644ade388ec674d5ee2df8401fe21b9a40a2759d7",
-      "bytes": 470,
-      "head": "pytest 03-development/tests/test_fr05.py --cov=03-development/src --cov-report=term-missing: 39 passed in 4.07s. 0 failed. Coverage: cli/main.py 98% (62/63), cli/commands.py 88% (304/345), TOTAL 83% (1104 stmts, 188 miss). spec_cov_pct=100% (9/9 required tests present and pass - test_fr05_status_json_contains_all_task_fields, test_fr05_clear_removes_all_data_files, test_fr05_all_exit_codes_are_reachable[exit0..exit6]). score=min(coverage_pct=83, spec_cov_pct=100)=83"
-    },
-    "architecture_constraints": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "16b82e84febaa98fa2909a6dba6067d2318664388e22467bbea8d7c70ab003b8",
-      "bytes": 238,
-      "head": "lint-imports (PYTHONPATH=03-development/src:.) exit=0: Analyzed 23 files, 29 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT"
+      "score": 100.0
     }
   },
   "composite_score": 100.0,

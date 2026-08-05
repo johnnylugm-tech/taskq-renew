@@ -5,6 +5,62 @@
 > This report certifies the verification status of each Functional Requirement
 > against its acceptance criteria, with Gate 3 deferred issues noted.
 
+## P5 Evidence Narrative (appended on top of generated sections — do not overwrite below)
+
+This narrative supplements the deterministic generator output with live evidence gathered during the Phase 5 verification rerun. The generator-emitted "Per-FR Verification", "Summary", "Certification", and "Provenance" blocks below remain authoritative; this section adds the verification-trace cross-references the audit reader expects (test runs, security scans, performance benchmarks, integration rerun).
+
+### Verification Evidence Map
+
+| Concern | Source of truth | Phase 5 re-run result |
+|---------|-----------------|-----------------------|
+| Functional (Gate 1) | `.methodology/quality_manifest.json` → `gate_results.gate1` | 8 / 8 FRs @ score = 100.0; open_critical = 0, open_high = 0 across the board |
+| Quality (Gate 3 composite) | `quality_manifest.json` → `gate_results.gate3` | composite **95.88**, quality_complete = true |
+| Test execution | `04-testing/TEST_RESULTS.md` (Gate 3 summary) | 7,165 collected / 7,158 passed / 0 failed / 7 skipped / 5 benign warnings; wall 160.29 s |
+| Coverage | `04-testing/COVERAGE_REPORT.md` + `coverage_raw.txt` | 99 % overall (1104 stmts / 4 miss); 21 / 22 modules at 100 %; `storage/atomic.py` @ 88 % (defensive cleanup only) |
+| High-risk module coverage | `COVERAGE_REPORT.md` § High-Risk-Module Coverage | `service/executor.py` 100 %, `service/plugins.py` 100 %, `storage/task_store.py` 100 % — all PASS |
+| Integration rerun | `pytest -q 03-development/tests/integration/` (Phase 5 rerun, this turn) | **48 passed, 1 skipped in 1.32 s** — the 1 skip is the `TASKQ_RUN_INTEGRATION=1`-gated path; green |
+| Performance (NFR-01) | `pytest --benchmark-only --benchmark-disable-gc 03-development/tests/test_benchmarks.py` (Phase 5 rerun) | 4 / 4 micro-benchmarks green; hottest op (`atomic_write_json`) mean = 182 µs — ≥ 274× under the 50 ms p95 ceiling |
+| Security (NFR-02 / NFR-04) | `bandit -r 03-development/src/ -ll` (Phase 5 rerun) | 0 HIGH / 0 MEDIUM / 2 LOW (HIGH-confidence false positives — `subprocess` import + `subprocess.run` without `shell=True` in `service/executor.py`; both intentional per FR-02 design) |
+| Secret scan (NFR-04) | `gitleaks detect --source /Users/johnny/projects/taskq-renew` (Phase 5 rerun) | **no leaks found** (105 commits scanned) |
+| Traceability | `01-requirements/TRACEABILITY_MATRIX.md` + `SPEC_TRACKING.md` | 8 FRs ↔ modules mapped; no drift between matrix and tracking at Gate 3 |
+| Mutation testing | Gate 1 per-FR (P3 exit gate) — corpus re-run deferred to Gate 4 | All 8 FRs cleared Gate 1 mutation threshold (NFR-08 ≥ 70); see `quality_manifest.json` gate1 entries. NOTE: per task brief, mutmut was **not re-executed** here — Gate 1 artifacts are the source. |
+
+### Certification Precedence (per task brief)
+
+The certification decision tree applied is:
+
+```
+UNKNOWN  >  FAIL  >  Conditional PASS  >  PASS
+```
+
+- UNKNOWN: not encountered — every FR has Gate 1 evidence (`gate_results.gate1[FR-NN].score = 100.0`, `quality_complete = true`).
+- FAIL: not encountered — 0 open HIGH / 0 open CRITICAL across all 8 FRs.
+- Conditional PASS: not encountered — Gate 1 scoring is binary at 100.0 / not; no FR landed in the conditional band.
+- **PASS** — final verdict for all 8 FRs. (Matches the generator's "All FRs verified PASS at Gate 1. No Gate 3 deferred issues.")
+
+### Gate 3 Composite (95.88) — Dimensional Roll-up
+
+The composite score is a weighted aggregate over the 14 evaluation dimensions defined in `quality_manifest.json.nfr_dimension_mapping` (NFR-01 … NFR-12, plus test_coverage and architecture_constraints). Gate 3 has `quality_complete = true` and `rounds_used = 2`, indicating two quality-rounds were sufficient to converge. No Gate 3 deferred issues are open; Gate 4 (P6) is the next quality-gate event and will rerun the full 14-dimension suite.
+
+### Re-run Diff vs Generator Snapshot
+
+The generator ran at 2026-08-05 05:41:44 UTC. The Phase 5 verification rerun (this turn, 2026-08-05 05:42 UTC) executed:
+
+1. `bandit -r 03-development/src/ -ll` — clean for HIGH/MEDIUM; 2 LOW noted above.
+2. `gitleaks detect --source .` — clean.
+3. `pytest 03-development/tests/integration/ -q` — 48 passed / 1 skipped / 0 failed.
+4. `pytest --benchmark-only --benchmark-disable-gc 03-development/tests/test_benchmarks.py` — 4 passed.
+
+No new defects discovered. Generator output remains accurate.
+
+### What This Verification Does NOT Re-Run
+
+- Mutmut corpus (Gate 1 per-FR mutation testing) — deferred to Gate 4 per task brief; Gate 1 PASS artifacts are the authoritative source for NFR-08 at this gate.
+- Full 14-dimension evaluation suite — Gate 3 has already scored 95.88 and locked the result; Gate 4 will be the next full evaluation.
+- FR implementations — scope explicitly forbids re-implementation; only documentation and re-runs are in scope here.
+
+---
+
 ## Summary
 
 | Metric | Value |

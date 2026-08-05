@@ -1,7 +1,7 @@
 {
   "gate": 1,
-  "phase": 4,
-  "fr_id": "FR-05",
+  "phase": 5,
+  "fr_id": "FR-04",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,25 +9,27 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "ruff check 03-development/src/ --extend-ignore RUF001,RUF002,RUF003 exit=0: All checks passed!"
+      "tool_evidence": "All checks passed! (ruff exit 0, 0 violations on 03-development/src/ with --extend-ignore RUF001,RUF002,RUF003)"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785892408134\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.631}}"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785898902394\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 50,
+      "tests_passed": 21,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "coverage run -m pytest 03-development/tests/test_fr05.py: 50 passed in 4.04s. 0 failed. Coverage FR-scoped (cli/main.py, cli/commands.py): 100% (408/408 stmts, 0 miss). spec_cov_pct=100% (9/9 required tests present and pass - test_fr05_status_json_contains_all_task_fields, test_fr05_clear_removes_all_data_files, test_fr05_all_exit_codes_are_reachable x7). score=min(coverage_pct=100, spec_cov_pct=100)=100"
+      "tool_evidence": "21 passed in 2.62s. coverage json: cache.py 100% (44/44 lines, 100% statements), cache_store.py 100% (29/29 lines, 100% statements). totals: covered_lines=73, num_statements=73, percent_covered=100.0. All 3/3 spec-required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution. 0 failed, 0 skipped."
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "lint-imports (PYTHONPATH=03-development/src:.) exit=0: Analyzed 23 files, 29 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT"
+      "framework_override": true,
+      "tool_output": ".sessi-work/round_1/tools/architecture_constraints.txt",
+      "tool_evidence": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0 with PYTHONPATH=03-development/src."
     }
   },
   "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
@@ -61,30 +63,30 @@
     "linting": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "56201fd273620c8a16378ad1cd47f399b492f937b74d578c27bfcd28417d3587",
-      "bytes": 94,
-      "head": "ruff check 03-development/src/ --extend-ignore RUF001,RUF002,RUF003 exit=0: All checks passed!"
+      "sha256": "daab65e2b6d157c378b25c3aace21a9dba9d9b7497908893fe28fcf30f04ef96",
+      "bytes": 111,
+      "head": "All checks passed! (ruff exit 0, 0 violations on 03-development/src/ with --extend-ignore RUF001,RUF002,RUF003)"
     },
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "a851f942504681256e9d78f19db85645b41af8820875f0b3c963980118d1ae7f",
-      "bytes": 233,
-      "head": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785892408134\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.631}}"
+      "sha256": "a51f2f594a54eaa3e70d4efe7d674619e9b4a9ca704050f30c2de92eb4bfe01b",
+      "bytes": 186,
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785898902394\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "5c7c28886b466ecd29fc9991881c905d21043282b86b4bbaf67358031d4f6da4",
-      "bytes": 407,
-      "head": "coverage run -m pytest 03-development/tests/test_fr05.py: 50 passed in 4.04s. 0 failed. Coverage FR-scoped (cli/main.py, cli/commands.py): 100% (408/408 stmts, 0 miss). spec_cov_pct=100% (9/9 required tests present and pass - test_fr05_status_json_contains_all_task_fields, test_fr05_clear_removes_all_data_files, test_fr05_all_exit_codes_are_reachable x7). score=min(coverage_pct=100, spec_cov_pct=100)=100"
+      "sha256": "f3e25b905a1e6e26cc0e8457ee0a860c10408f576db5150e429a8f7edfba3f94",
+      "bytes": 410,
+      "head": "21 passed in 2.62s. coverage json: cache.py 100% (44/44 lines, 100% statements), cache_store.py 100% (29/29 lines, 100% statements). totals: covered_lines=73, num_statements=73, percent_covered=100.0. All 3/3 spec-required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution. 0 failed, 0 skipped."
     },
     "architecture_constraints": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "16b82e84febaa98fa2909a6dba6067d2318664388e22467bbea8d7c70ab003b8",
-      "bytes": 238,
-      "head": "lint-imports (PYTHONPATH=03-development/src:.) exit=0: Analyzed 23 files, 29 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT"
+      "source": ".sessi-work/round_1/tools/architecture_constraints.txt",
+      "kind": "file",
+      "sha256": "7ac4bde5fda0f1939d01dac7db6bf5be0e71052c11bafe2b0a3267d34482aed8",
+      "bytes": 924,
+      "head": "\n╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐\n╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │\n ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗\n ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝\n╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║\n╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝\n  └──▶║║                    ▲ \n      ╚╝────────────────────┘\n\n\n---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT"
     }
   },
   "composite_score": 100.0,

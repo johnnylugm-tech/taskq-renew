@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 5,
-  "fr_id": "FR-03",
+  "fr_id": "FR-04",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,20 +9,20 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed!\n"
+      "tool_evidence": "All checks passed! (ruff exit 0, 0 violations on 03-development/src/ with --extend-ignore RUF001,RUF002,RUF003)"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785898725048\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.703}}"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785898902394\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 25,
+      "tests_passed": 21,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================== 25 passed in 1.86s ============================== coverage 100.0% on FR-03 files (totals: covered_lines=150, num_statements=150, percent_covered=100.0). breaker.py 100% (32/32), executor.py 100% (68/68), breaker_store.py 100% (50/50). All 5/5 spec-required tests present and passing: test_fr03_transient_failure_succeeds_after_retry, test_fr03_breaker_open_rejects_run, test_fr03_breaker_cooldown_closes_breaker, test_fr03_breaker_recovery_within_cooldown_bound, test_fr03_retry_backoff_sleeps_exponentially. 0 failed, 0 skipped."
+      "tool_evidence": "21 passed in 2.62s. coverage json: cache.py 100% (44/44 lines, 100% statements), cache_store.py 100% (29/29 lines, 100% statements). totals: covered_lines=73, num_statements=73, percent_covered=100.0. All 3/3 spec-required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution. 0 failed, 0 skipped."
     },
     "architecture_constraints": {
       "score": 100.0,
@@ -63,23 +63,23 @@
     "linting": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
-      "bytes": 18,
-      "head": "All checks passed!"
+      "sha256": "daab65e2b6d157c378b25c3aace21a9dba9d9b7497908893fe28fcf30f04ef96",
+      "bytes": 111,
+      "head": "All checks passed! (ruff exit 0, 0 violations on 03-development/src/ with --extend-ignore RUF001,RUF002,RUF003)"
     },
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "6a8c51f1ff964810121abbd2fc891d74b8ee7ecd0467ae1b68fb1b7458cdd465",
+      "sha256": "a51f2f594a54eaa3e70d4efe7d674619e9b4a9ca704050f30c2de92eb4bfe01b",
       "bytes": 186,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785898725048\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.703}}"
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785898902394\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "0565b13d9c8d405bdabfef60939eeb64158b423d4400572a2076fcdb6ab307ff",
-      "bytes": 560,
-      "head": "============================== 25 passed in 1.86s ============================== coverage 100.0% on FR-03 files (totals: covered_lines=150, num_statements=150, percent_covered=100.0). breaker.py 100% (32/32), executor.py 100% (68/68), breaker_store.py 100% (50/50). All 5/5 spec-required tests present and passing: test_fr03_transient_failure_succeeds_after_retry, test_fr03_breaker_open_rejects_run, test_fr03_breaker_cooldown_closes_breaker, test_fr03_breaker_recovery_within_cooldown_bound, test_fr03_retry_backoff_sleeps_exponentially. 0 failed, 0 skipped."
+      "sha256": "f3e25b905a1e6e26cc0e8457ee0a860c10408f576db5150e429a8f7edfba3f94",
+      "bytes": 410,
+      "head": "21 passed in 2.62s. coverage json: cache.py 100% (44/44 lines, 100% statements), cache_store.py 100% (29/29 lines, 100% statements). totals: covered_lines=73, num_statements=73, percent_covered=100.0. All 3/3 spec-required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution. 0 failed, 0 skipped."
     },
     "architecture_constraints": {
       "source": ".sessi-work/round_1/tools/architecture_constraints.txt",

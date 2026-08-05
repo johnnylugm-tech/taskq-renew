@@ -1,6 +1,6 @@
 {
   "gate": 1,
-  "phase": 7,
+  "phase": 8,
   "fr_id": "FR-01",
   "overall_score": 100.0,
   "quality_complete": true,
@@ -14,20 +14,20 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\":\"1.1.409\",\"time\":\"1785916541646\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.642}}"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785924525952\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.642}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 312,
+      "tests_passed": 342,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================= 312 passed in 12.99s =============================\nCoverage: cli/commands.py=100.00%, models/task.py=100.00%, storage/task_store.py=100.00% (526/526 statements)"
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 342 items\n\n03-development/tests/test_fr01.py ...................................... [ 11%]\n.......................................                                  [ 22%]\n03-development/tests/test_fr02.py ...................................... [ 33%]\n..............................                                           [ 42%]\n03-development/tests/test_fr05.py ...................................... [ 53%]\n............                                                             [ 57%]\n03-development/tests/test_fr06.py ....................                   [ 62%]\n03-development/tests/test_fr07.py ...................................... [ 73%]\n..........                                                               [ 76%]\n03-development/tests/test_fr08.py ...................................... [ 88%]\n.........................................                                [100%]\n\n============================= 342 passed in 13.68s ============================="
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "PYTHONPATH=03-development/src lint-imports exit=0 | Analyzed 23 files, 30 dependencies | Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT)"
+      "tool_evidence": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0."
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -68,23 +68,23 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "af676521416f89fe109e3c76e312c58f3bc212c68823a4d7bafb1c86dfac643d",
-      "bytes": 170,
-      "head": "{\"version\":\"1.1.409\",\"time\":\"1785916541646\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.642}}"
+      "sha256": "b895b37fc3b2bd97e02ed57fc29653f23cc516b661549886fd5a30394b803981",
+      "bytes": 186,
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785924525952\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.642}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "7d345cfd3b6f50ef68fadcc112bb42ea38e41ab4e2172e76f667830a16c33ae2",
-      "bytes": 190,
-      "head": "============================= 312 passed in 12.99s =============================\nCoverage: cli/commands.py=100.00%, models/task.py=100.00%, storage/task_store.py=100.00% (526/526 statements)"
+      "sha256": "6bfcdb75ec4dda8080e9b55fcfd031e0ecc698fb169354e358b032f7f9e084f5",
+      "bytes": 1439,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 342 items\n\n03-development/tests/test_fr01.py ...................................... [ 11%]\n.......................................                                  [ 22%]\n03-development/tests/test_fr02.py ...................................... [ 33%]\n..............................                                           [ 42%]\n03-development/tests/test_fr05.py ...................................... [ 53%]\n............                                                             [ 57%]\n03-development/tests/test_fr06.py ....................                   [ 62%]\n03-development/tests/test_fr07.py ...................................... [ 73%]\n..........                                                               [ 76%]\n03-development/tests/test_fr08.py ...................................... [ 88%]\n.........................................                                [100%]\n"
     },
     "architecture_constraints": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "c265cb52d59a5aaf657cbef1e44ebe63651e99230280df9baba70f133e834e21",
-      "bytes": 238,
-      "head": "PYTHONPATH=03-development/src lint-imports exit=0 | Analyzed 23 files, 30 dependencies | Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT)"
+      "sha256": "39215f7eaa2fa1294376f5d9dc6eefa8c979a2b06995772f310ecac0ca57e9a9",
+      "bytes": 206,
+      "head": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0."
     }
   },
   "composite_score": 100.0,

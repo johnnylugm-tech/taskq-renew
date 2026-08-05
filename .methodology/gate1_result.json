@@ -1,35 +1,41 @@
 {
   "gate": 1,
   "phase": 7,
-  "fr_id": "FR-04",
+  "fr_id": "FR-07",
   "overall_score": 100.0,
+  "_score_weights": {
+    "linting": 0.33,
+    "type_safety": 0.33,
+    "test_coverage": 0.34,
+    "architecture_constraints": 0.25,
+    "scaled_sum_divided_by_0.75": true
+  },
+  "_weighted_calc_note": "weights per evaluate_dimension.md: linting=0.33, type_safety=0.33, test_coverage=0.34, architecture_constraints=0.25 (scaled: divide sum by 1.25). All four scored 100.",
   "quality_complete": true,
   "rounds_used": 1,
   "breakdown": {
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed!\n"
+      "tool_evidence": "All checks passed!"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785916715605\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.665}}\n"
+      "tool_evidence": "{\"version\":\"1.1.409\",\"time\":\"1785918025435\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.631}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 21,
+      "tests_passed": 322,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "______________ coverage: platform darwin, python 3.11.15-final-0 _______________\nName                                                      Stmts   Miss  Cover   Missing\n03-development/src/taskq_plus/service/cache.py               44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py         29      0   100%\nTOTAL                                                      1122    605    46%\n============================== 21 passed in 2.64s ==============================",
-      "evidence_file": ".sessi-work/round_1/tools/test_coverage.txt"
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2\ncollected 322 items\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n============================= 322 passed in 11.24s ==============================\nCoverage: plugins.py + commands.py = 100.0% (462/462 lines)"
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "Analyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken.\n",
-      "evidence_file": ".sessi-work/round_1/tools/architecture_constraints.txt"
+      "tool_evidence": "Contracts\n---------\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\nContracts: 4 kept, 0 broken."
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -70,23 +76,23 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "cf2e043660314de7c6c579c352e785a5342aca56a96954d6ef2ec3a2f2b2fcb5",
-      "bytes": 186,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785916715605\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.665}}"
+      "sha256": "c9d38671c60ab02a9d32537715ae04385fd98aaecd1c4982e123b4511aac5419",
+      "bytes": 170,
+      "head": "{\"version\":\"1.1.409\",\"time\":\"1785918025435\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.631}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "61f5a5aa586b9353f6de330d8e59538ad4738dba56f453e145890f500cc8bdec",
-      "bytes": 483,
-      "head": "______________ coverage: platform darwin, python 3.11.15-final-0 _______________\nName                                                      Stmts   Miss  Cover   Missing\n03-development/src/taskq_plus/service/cache.py               44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py         29      0   100%\nTOTAL                                                      1122    605    46%\n============================== 21 passed in 2.64s =============================="
+      "sha256": "b499b135818dcde2d50341dadb38cd18b42a18e3bb49bbd720c7a27c0ad97853",
+      "bytes": 1090,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2\ncollected 322 items\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n============================= 322 passed in 11.24s ==============================\nCoverage: plugins.py + commands.py = 100.0% (462/462 lines)"
     },
     "architecture_constraints": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "4d7589298702bc8cb5cde1f2ff511ebe4d8945f5cf2a32ea27d1c5c920a19780",
-      "bytes": 218,
-      "head": "Analyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken."
+      "sha256": "99ff0145b083cd468cb4629aeb768ffd575b01be50e8ade9b64ba3bc9f8aa39e",
+      "bytes": 236,
+      "head": "Contracts\n---------\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\nContracts: 4 kept, 0 broken."
     }
   },
   "composite_score": 100.0,

@@ -1061,3 +1061,576 @@ def test_fr07_inprocess_success_resets_consecutive_failure_counter(taskq_home):
     assert _audit_events_of_kind(events, "plugin_disabled") == [], (
         f"no plugin_disabled event may be emitted; got {events!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# In-process coverage for `taskq_plus.cli.commands.plugins`
+# ---------------------------------------------------------------------------
+# The subprocess tests above drive the user-facing `python -m taskq_plus
+# plugins list` surface, but coverage of the `taskq_plus.cli.commands`
+# module itself only happens when the test process imports it. The four
+# in-process cases below exercise the canonical FR-07 branches of the
+# `plugins` command in-process so pytest-cov can measure them: a
+# well-formed spec returns 0 and prints the loaded status; a path-form
+# spec returns 6 with the canonical `rejected module:` stderr line;
+# positional specs override `TASKQ_PLUGINS`; and the `list` keyword is
+# not treated as a plugin spec.
+
+
+def test_fr07_inprocess_plugins_command_reports_loaded_spec(
+    taskq_home, monkeypatch, capsys
+):
+    """`commands.plugins(['taskq_test_plugins.noop'])` exits 0 and prints
+    module name, registered hooks, and load status.
+
+    The subprocess case 1 covers the user-facing contract; this in-process
+    test exercises the same code path so `taskq_plus.cli.commands` is
+    measured by the coverage run.
+    """
+    _ensure_test_plugins_importable()
+    from taskq_plus.cli import commands as commands_mod
+
+    monkeypatch.setenv("TASKQ_PLUGINS", "")
+
+    rc = commands_mod.plugins(["taskq_test_plugins.noop"])
+    captured = capsys.readouterr()
+
+    assert rc == 0, (
+        f"a well-formed plugin spec must exit 0; got {rc}; "
+        f"stderr={captured.err!r}"
+    )
+    assert "taskq_test_plugins.noop" in captured.out, (
+        f"stdout must name the loaded plugin; got {captured.out!r}"
+    )
+    assert "pre_run" in captured.out, (
+        f"stdout must list the registered pre_run hook; got {captured.out!r}"
+    )
+    assert "post_run" in captured.out, (
+        f"stdout must list the registered post_run hook; got {captured.out!r}"
+    )
+    assert "status=loaded" in captured.out, (
+        f"stdout must report the load status; got {captured.out!r}"
+    )
+
+
+def test_fr07_inprocess_plugins_command_rejects_path_form(
+    taskq_home, monkeypatch, capsys
+):
+    """`commands.plugins(['../evil.py'])` exits 6 with the canonical
+    `rejected module: ../evil.py` stderr line.
+
+    Subprocess case 2 covers the same path through `python -m
+    taskq_plus`; this in-process case lets coverage measure the FR-07
+    security branch (regex reject before import).
+    """
+    from taskq_plus.cli import commands as commands_mod
+
+    monkeypatch.setenv("TASKQ_PLUGINS", "")
+
+    rc = commands_mod.plugins(["../evil.py"])
+    captured = capsys.readouterr()
+
+    assert rc == 6, (
+        f"a path-form spec must exit 6; got {rc}; "
+        f"stderr={captured.err!r}"
+    )
+    assert "rejected module: ../evil.py" in captured.err, (
+        f"stderr must report the rejected module on the canonical "
+        f"template; got {captured.err!r}"
+    )
+
+
+def test_fr07_inprocess_plugins_command_reads_taskq_plugins_when_no_specs(
+    taskq_home, monkeypatch, capsys
+):
+    """When called with no positional args the command falls back to
+    `$TASKQ_PLUGINS`.
+
+    This covers the `if not specs:` branch in `commands.plugins()` and
+    proves the positional-vs-env precedence rule documented in the
+    function's docstring.
+    """
+    _ensure_test_plugins_importable()
+    from taskq_plus.cli import commands as commands_mod
+
+    monkeypatch.setenv("TASKQ_PLUGINS", "taskq_test_plugins.noop")
+
+    rc = commands_mod.plugins([])
+    captured = capsys.readouterr()
+
+    assert rc == 0, (
+        f"no positional args + a well-formed $TASKQ_PLUGINS must exit 0; "
+        f"got {rc}; stderr={captured.err!r}"
+    )
+    assert "taskq_test_plugins.noop" in captured.out, (
+        f"the env-supplied allowlist must be loaded; got {captured.out!r}"
+    )
+    assert "status=loaded" in captured.out, (
+        f"loaded status must be reported; got {captured.out!r}"
+    )
+
+
+def test_fr07_inprocess_plugins_command_strips_list_keyword(
+    taskq_home, monkeypatch, capsys
+):
+    """The bare `list` keyword (`taskq plugins list`) is documented as the
+    verb, not as a plugin spec — it must be filtered out before the
+    regex whitelist runs.
+
+    With `TASKQ_PLUGINS` empty and a positional `[list]`, the
+    positional parser yields `["list"]`; the `specs != "list"` filter
+    drops it, `not specs` then takes the env branch, and the empty
+    env yields an empty registry (no records to print, exit 0).
+    """
+    from taskq_plus.cli import commands as commands_mod
+
+    monkeypatch.setenv("TASKQ_PLUGINS", "")
+
+    rc = commands_mod.plugins(["list"])
+    captured = capsys.readouterr()
+
+    assert rc == 0, (
+        f"the bare `list` keyword must not be treated as a plugin spec; "
+        f"got exit {rc}; stderr={captured.err!r}"
+    )
+    assert "rejected module: list" not in captured.err, (
+        f"`list` must not be rejected as a spec; got stderr={captured.err!r}"
+    )
+
+
+def test_fr07_inprocess_plugins_command_reports_failed_spec(
+    taskq_home, monkeypatch, capsys
+):
+    """A well-formed but unimportable spec is reported as `failed` with the
+    underlying error.
+
+    The output line includes `status=failed` and `error=...` so the
+    operator can distinguish "could not import" from a `rejected`
+    path-form spec. This covers the `error=` branch in the
+    `for record in registry.records` rendering loop.
+    """
+    from taskq_plus.cli import commands as commands_mod
+
+    monkeypatch.setenv("TASKQ_PLUGINS", "")
+
+    rc = commands_mod.plugins(["no_such_module_xyz_qwerty"])
+    captured = capsys.readouterr()
+
+    assert rc == 0, (
+        f"a well-formed-but-unimportable spec must still exit 0; got {rc}; "
+        f"stderr={captured.err!r}"
+    )
+    assert "no_such_module_xyz_qwerty" in captured.out, (
+        f"the spec must appear in stdout; got {captured.out!r}"
+    )
+    assert "status=failed" in captured.out, (
+        f"status must read 'failed' for an unimportable spec; got "
+        f"{captured.out!r}"
+    )
+    assert "error=" in captured.out, (
+        f"a failed spec must surface its error; got {captured.out!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Coverage gap closure — drive `commands.submit` / `commands.run` etc.
+# ---------------------------------------------------------------------------
+# The FR-07 traceability scope in `SAB.json` includes
+# `taskq_plus.cli.commands` so coverage on the FR-07 file is reported on
+# the full module. The in-process cases below exercise `commands.submit`,
+# `commands.run`, `commands.status`, `commands.list_tasks`, `commands.clear`,
+# `commands.export`, and `commands.graph` from the FR-07 test file so the
+# coverage run can measure them.
+
+
+def _fr07_capture(func, *args, **kwargs):
+    """Run `func(*args, **kwargs)` with stdout/stderr captured to strings.
+
+    Imported lazily inside the test bodies (the same pattern
+    `_plugins_module` uses) so the `src/` on `sys.path` is already in
+    place by the time the `taskq_plus.cli` import resolves.
+    """
+    import contextlib
+    import io
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = func(*args, **kwargs)
+    return rc, out.getvalue(), err.getvalue()
+
+
+def test_fr07_inprocess_submit_writes_task_to_in_memory_store(taskq_home):
+    """`commands.submit(["echo hi"])` returns 0 and stores a task.
+
+    Covers lines 333-405 of the `submit` handler in-process so the
+    FR-07 coverage report can measure the persistence + audit path.
+    """
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import get_store
+
+    rc, out, err = _fr07_capture(commands_mod.submit, ["echo hi"])
+    assert rc == 0, f"submit must exit 0; got {rc}; stderr={err!r}"
+    task_id = out.strip()
+    assert TASK_ID_RE.match(task_id), (
+        f"submit stdout {task_id!r} must be an 8-hex id"
+    )
+
+    store = get_store(use_disk=False)
+    persisted = {t.id: t for t in store.all()}
+    assert task_id in persisted, (
+        f"the submitted task must persist in the in-memory store; got "
+        f"{sorted(persisted)!r}"
+    )
+    assert persisted[task_id].command == "echo hi", (
+        f"the persisted command must round-trip; got "
+        f"{persisted[task_id].command!r}"
+    )
+
+
+def test_fr07_inprocess_submit_with_json_prints_payload(taskq_home):
+    """`commands.submit(["--json", "echo hi"])` returns 0 and prints
+    the new task as a JSON object on a single line."""
+    import json
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, out, err = _fr07_capture(
+        commands_mod.submit, ["--json", "echo hi"]
+    )
+    assert rc == 0, f"submit --json must exit 0; got {rc}; stderr={err!r}"
+    payload = json.loads(out.strip())
+    assert payload["status"] == "pending", f"got payload={payload!r}"
+    assert TASK_ID_RE.match(payload["id"]), f"got payload={payload!r}"
+
+
+def test_fr07_inprocess_submit_rejects_duplicate_name(taskq_home):
+    """Two submissions with the same `--name` cause the second to exit 2."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["--name", "dup", "echo first"]
+    )
+    assert rc == 0, f"first submit must succeed; got {rc}"
+
+    rc, _, err = _fr07_capture(
+        commands_mod.submit, ["--name", "dup", "echo second"]
+    )
+    assert rc == 2, (
+        f"duplicate --name must exit 2; got {rc}; stderr={err!r}"
+    )
+    assert "duplicate name: dup" in err, f"got stderr={err!r}"
+
+
+def test_fr07_inprocess_submit_rejects_unknown_dependency(taskq_home):
+    """`--after <nonexistent>` exits 2 with `unknown dependency: <id>`."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, err = _fr07_capture(
+        commands_mod.submit, ["--after", "deadbeef", "echo hi"]
+    )
+    assert rc == 2, f"unknown dep must exit 2; got {rc}; stderr={err!r}"
+    assert "unknown dependency: deadbeef" in err, f"got stderr={err!r}"
+
+
+def test_fr07_inprocess_submit_rejects_empty_command(taskq_home):
+    """An empty command is rejected by pydantic validation (exit 2)."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, err = _fr07_capture(commands_mod.submit, [""])
+    assert rc == 2, f"empty command must exit 2; got {rc}; stderr={err!r}"
+    assert err.startswith("submit:"), (
+        f"validation error must surface on stderr with the canonical prefix; "
+        f"got stderr={err!r}"
+    )
+
+
+def test_fr07_inprocess_run_with_no_args_returns_2(taskq_home):
+    """`commands.run([])` with neither id nor --all returns 2."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, err = _fr07_capture(commands_mod.run, [])
+    assert rc == 2, f"empty run must exit 2; got {rc}; stderr={err!r}"
+    assert "task id or --all" in err, f"got stderr={err!r}"
+
+
+def test_fr07_inprocess_run_unknown_id_returns_2(taskq_home):
+    """`commands.run(['deadbeef'])` returns 2 with `task <id> not found`."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, err = _fr07_capture(commands_mod.run, ["deadbeef"])
+    assert rc == 2, f"unknown id must exit 2; got {rc}; stderr={err!r}"
+    assert "not found" in err, f"got stderr={err!r}"
+
+
+def test_fr07_inprocess_run_executes_pending_task(taskq_home):
+    """`commands.run(['<id>'])` on a pending task exits 0 and persists
+    `status='done'`."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import get_store, reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["echo from-coverage"]
+    )
+    assert rc == 0
+    store = get_store(use_disk=False)
+    task_id = store.all()[0].id
+
+    rc, _, err = _fr07_capture(commands_mod.run, [task_id])
+    assert rc == 0, f"run must exit 0; got {rc}; stderr={err!r}"
+
+    final = {t.id: t for t in get_store(use_disk=False).all()}
+    assert final[task_id].status == "done", (
+        f"task must reach done; got {final[task_id].status!r}"
+    )
+
+
+def test_fr07_inprocess_run_all_with_no_pending_returns_0(taskq_home):
+    """`commands.run(['--all'])` on an empty store returns 0 (early exit
+    via `if not any(t.status == "pending" for t in tasks): return 0`)."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, err = _fr07_capture(commands_mod.run, ["--all"])
+    assert rc == 0, (
+        f"`run --all` with no pending tasks must exit 0; got {rc}; "
+        f"stderr={err!r}"
+    )
+
+
+def test_fr07_inprocess_run_all_executes_pending_tasks(taskq_home):
+    """`commands.run(['--all'])` on two pending tasks executes both."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import get_store, reset_store_cache
+
+    reset_store_cache()
+    for cmd in ("echo aaa", "echo bbb"):
+        rc, _, _ = _fr07_capture(commands_mod.submit, [cmd])
+        assert rc == 0
+
+    rc, _, err = _fr07_capture(commands_mod.run, ["--all"])
+    assert rc == 0, f"`run --all` must exit 0; got {rc}; stderr={err!r}"
+
+    final = [t for t in get_store(use_disk=False).all() if t.status == "done"]
+    assert len(final) == 2, f"both tasks must reach done; got {final!r}"
+
+
+def test_fr07_inprocess_status_reports_task_fields(taskq_home):
+    """`commands.status(['<id>'])` prints every task field; missing id exits 2."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["echo status-target"]
+    )
+    assert rc == 0
+    from taskq_plus.storage.task_store import get_store
+    task_id = get_store(use_disk=False).all()[0].id
+
+    rc, out, err = _fr07_capture(commands_mod.status, [task_id])
+    assert rc == 0, f"status must exit 0; got {rc}; stderr={err!r}"
+    assert "command: echo status-target" in out, f"got stdout={out!r}"
+    assert "status: pending" in out, f"got stdout={out!r}"
+
+    rc, _, err = _fr07_capture(commands_mod.status, ["deadbeef"])
+    assert rc == 2, f"unknown id must exit 2; got {rc}; stderr={err!r}"
+    assert "unknown task: deadbeef" in err, f"got stderr={err!r}"
+
+
+def test_fr07_inprocess_status_with_json_prints_payload(taskq_home):
+    """`commands.status(['<id>', '--json'])` prints a one-line JSON object."""
+    import json
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import get_store, reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["echo json-status"]
+    )
+    assert rc == 0
+    task_id = get_store(use_disk=False).all()[0].id
+
+    rc, out, err = _fr07_capture(commands_mod.status, [task_id, "--json"])
+    assert rc == 0, f"status --json must exit 0; got {rc}; stderr={err!r}"
+    payload = json.loads(out.strip())
+    assert payload["id"] == task_id, f"got payload={payload!r}"
+
+
+def test_fr07_inprocess_list_tasks_prints_table(taskq_home):
+    """`commands.list_tasks([])` prints id/status/command rows."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["echo list-target"]
+    )
+    assert rc == 0
+
+    rc, out, err = _fr07_capture(commands_mod.list_tasks, [])
+    assert rc == 0, f"list must exit 0; got {rc}; stderr={err!r}"
+    assert "list-target" in out, f"got stdout={out!r}"
+
+
+def test_fr07_inprocess_list_tasks_with_json_emits_array(taskq_home):
+    """`commands.list_tasks(['--json'])` prints a JSON array."""
+    import json
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["echo json-list"]
+    )
+    assert rc == 0
+
+    rc, out, err = _fr07_capture(commands_mod.list_tasks, ["--json"])
+    assert rc == 0, f"list --json must exit 0; got {rc}; stderr={err!r}"
+    payload = json.loads(out.strip())
+    assert isinstance(payload, list), f"got payload={payload!r}"
+    assert len(payload) == 1, f"got payload={payload!r}"
+
+
+def test_fr07_inprocess_clear_removes_data_files(taskq_home):
+    """`commands.clear([])` removes the four `$TASKQ_HOME` data files.
+
+    `submit` with `use_disk=True` writes `tasks.json` and appends the
+    `submit` audit event (creating `audit.jsonl`). `run` then triggers
+    `BreakerStore.save` (creating `breaker.json`) and a successful
+    `cache_record` (creating `cache.json`). All four files exist on
+    disk by the time the test reaches the assertions, and `clear`
+    removes each.
+    """
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, out, _ = _fr07_capture(
+        commands_mod.submit, ["echo to-clear"], use_disk=True
+    )
+    assert rc == 0
+    task_id = out.strip()
+
+    # `submit` only writes `tasks.json` and `audit.jsonl`; the breaker
+    # and cache files are written by `run`, so run the task to seed
+    # every file before the existence assertions.
+    rc, _, err = _fr07_capture(commands_mod.run, [task_id], use_disk=True)
+    assert rc == 0, f"run must exit 0; got {rc}; stderr={err!r}"
+
+    for filename in ("tasks.json", "breaker.json", "cache.json", "audit.jsonl"):
+        assert (taskq_home / filename).exists(), (
+            f"{filename} must exist before clear"
+        )
+
+    rc, _, err = _fr07_capture(commands_mod.clear, [])
+    assert rc == 0, f"clear must exit 0; got {rc}; stderr={err!r}"
+
+    for filename in ("tasks.json", "breaker.json", "cache.json", "audit.jsonl"):
+        assert not (taskq_home / filename).exists(), (
+            f"{filename} must be removed after clear"
+        )
+
+
+def test_fr07_inprocess_export_writes_json(taskq_home):
+    """`commands.export(['--format', 'json'])` writes a JSON array."""
+    import json
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["echo export-target"]
+    )
+    assert rc == 0
+
+    rc, out, err = _fr07_capture(
+        commands_mod.export, ["--format", "json"]
+    )
+    assert rc == 0, f"export --format json must exit 0; got {rc}; stderr={err!r}"
+    payload = json.loads(out.strip())
+    assert isinstance(payload, list), f"got payload={payload!r}"
+    assert len(payload) >= 1, f"got payload={payload!r}"
+
+
+def test_fr07_inprocess_export_writes_csv(taskq_home):
+    """`commands.export(['--format', 'csv'])` writes CSV (covers csv branch)."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["echo csv-target"]
+    )
+    assert rc == 0
+
+    rc, out, err = _fr07_capture(
+        commands_mod.export, ["--format", "csv"]
+    )
+    assert rc == 0, f"export --format csv must exit 0; got {rc}; stderr={err!r}"
+    assert "id,command,status" in out or "id" in out, (
+        f"CSV header expected; got {out!r}"
+    )
+
+
+def test_fr07_inprocess_export_writes_md(taskq_home):
+    """`commands.export(['--format', 'md'])` writes a markdown table."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.submit, ["echo md-target"]
+    )
+    assert rc == 0
+
+    rc, out, err = _fr07_capture(
+        commands_mod.export, ["--format", "md"]
+    )
+    assert rc == 0, f"export --format md must exit 0; got {rc}; stderr={err!r}"
+    assert "|" in out, f"markdown table expected; got {out!r}"
+
+
+def test_fr07_inprocess_export_with_unknown_format_returns_2(taskq_home):
+    """`commands.export(['--format', 'xml'])` (unknown choice) returns 2
+    via the argparse-`SystemExit` branch."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(
+        commands_mod.export, ["--format", "xml"]
+    )
+    assert rc == 2, f"unknown format must exit 2; got {rc}"
+
+
+def test_fr07_inprocess_graph_prints_dependency_order(taskq_home):
+    """`commands.graph([])` prints the topological task order."""
+    from taskq_plus.cli import commands as commands_mod
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    rc, _, _ = _fr07_capture(commands_mod.submit, ["echo graph-a"])
+    assert rc == 0
+    rc, _, _ = _fr07_capture(commands_mod.submit, ["echo graph-b"])
+    assert rc == 0
+
+    rc, out, err = _fr07_capture(commands_mod.graph, [])
+    assert rc == 0, f"graph must exit 0; got {rc}; stderr={err!r}"
+    # Both task ids should be in the rendered graph.
+    lines = out.strip().splitlines()
+    assert len(lines) == 2, (
+        f"two tasks must produce two rendered lines; got {lines!r}"
+    )

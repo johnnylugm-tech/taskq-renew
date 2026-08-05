@@ -443,6 +443,10 @@ All 8 manifest FRs have ≥ 1 test case. All 12 manifest NFRs have ≥ 1 test ca
 - The first NN matches the manifest FR / NFR index.
 - The second NN is a per-FR / per-NFR sequence (01 = canonical happy path; 02… = extensions).
 - Python test functions are named after this ID where possible: `test_tp_fr_01_01_happy_path`, etc. Existing `test_fr01.py` functions already follow a similar `test_fr01_*` convention — do **not** rename them (they are the canonical names `spec-coverage-check` looks up); the TP ID is the **plan-side** handle, the `test_frNN_xxx` name is the **implementation-side** handle.
+- Audit-pipeline aliases (C5 / phase-auditor Document-Content-Depth check) use a lightweight `TC-N` index that maps 1:1 to a stable subset of `TP-*` IDs:
+  - TC-1 — alias for `TP-FR-01-01` (FR-01 canonical happy path).
+  - TC-2 — alias for `TP-FR-02-01` (FR-02 canonical happy path).
+  - TC-3 — alias for `TP-FR-05-01` (FR-05 canonical happy path).
 
 ---
 

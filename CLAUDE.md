@@ -8,12 +8,12 @@
 <!-- harness:auto-start -->
 ## Harness Status _(auto-generated — do not edit this block)_
 
-> Phase: **7 — Risk** | Last Gate: **Gate 1** | Last FR: FR-05 | Updated: 2026-08-05
+> Phase: **7 — Risk** | Last Gate: **Gate 1** | Last FR: FR-03 | Updated: 2026-08-05
 
 ### Gate Progress
 | Gate | Score / FRs | Status |
 |------|-------------|--------|
-| Gate 1 | 8/8 FRs | ✅ PASS |
+| Gate 1 | 3/8 FRs | 🔄 In Progress |
 | Gate 2 | 95.3 | ✅ PASS |
 | Gate 3 | 95.9 | ✅ PASS |
 | Gate 4 | 93.6 | ✅ PASS |
@@ -21,14 +21,14 @@
 ### FR Registry (Gate 1)
 | FR ID | Score | Status |
 |-------|-------|--------|
-| FR-01 | 100.0 | ✅ COMPLETE |
-| FR-02 | 100.0 | ✅ COMPLETE |
+| FR-01 | 99.8 | 🔄 In Progress |
+| FR-02 | 98.3 | 🔄 In Progress |
 | FR-03 | 100.0 | ✅ COMPLETE |
 | FR-04 | 100.0 | ✅ COMPLETE |
 | FR-05 | 100.0 | ✅ COMPLETE |
-| FR-06 | 100.0 | ✅ COMPLETE |
-| FR-07 | 100.0 | ✅ COMPLETE |
-| FR-08 | 100.0 | ✅ COMPLETE |
+| FR-06 | 95.6 | 🔄 In Progress |
+| FR-07 | 99.3 | 🔄 In Progress |
+| FR-08 | 98.3 | 🔄 In Progress |
 
 ### Architecture Constraints
 - no_circular_dependencies

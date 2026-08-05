@@ -15,7 +15,7 @@
 | Code Coverage | 100.0% | 100% |
 | Test Coverage | 100.0% | 100% |
 | Verification Rate | 100.0% | 100% |
-| Total Links | 48 | — |
+| Total Links | 80 | — |
 
 ### ASPICE SWE.3 Compliance
 
@@ -29,14 +29,14 @@
 
 | Requirement | Status | Code Files | Test Files | SAD Module |
 |-------------|--------|------------|------------|------------|
-| FR-01 | verified | 03-development/src/taskq_plus/__init__.py, 03-development/src/taskq_plus/__main__.py, 03-development/src/taskq_plus/cli/__init__.py (+5) | 03-development/tests/test_fr01.py | — |
-| FR-02 | verified | 03-development/src/taskq_plus/cli/commands.py, 03-development/src/taskq_plus/models/errors.py, 03-development/src/taskq_plus/service/__init__.py (+2) | 03-development/tests/test_fr02.py | — |
-| FR-03 | verified | 03-development/src/taskq_plus/cli/commands.py, 03-development/src/taskq_plus/service/breaker.py, 03-development/src/taskq_plus/service/executor.py (+1) | 03-development/tests/test_fr03.py | — |
-| FR-04 | verified | 03-development/src/taskq_plus/cli/commands.py, 03-development/src/taskq_plus/service/cache.py, 03-development/src/taskq_plus/storage/cache_store.py | 03-development/tests/test_fr04.py | — |
-| FR-05 | verified | 03-development/src/taskq_plus/cli/commands.py, 03-development/src/taskq_plus/cli/main.py | 03-development/tests/test_fr05.py | — |
-| FR-06 | verified | 03-development/src/taskq_plus/cli/commands.py, 03-development/src/taskq_plus/service/dag.py | 03-development/tests/test_fr06.py | — |
-| FR-07 | verified | 03-development/src/taskq_plus/cli/commands.py, 03-development/src/taskq_plus/service/plugins.py | 03-development/tests/test_fr07.py | — |
-| FR-08 | verified | 03-development/src/taskq_plus/cli/commands.py, 03-development/src/taskq_plus/cli/main.py, 03-development/src/taskq_plus/observability/__init__.py (+3) | 03-development/tests/test_fr08.py | — |
+| FR-01 | verified | .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/__init__.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/__main__.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/__init__.py (+13) | 03-development/tests/test_fr01.py | — |
+| FR-02 | verified | .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/models/errors.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/__init__.py (+7) | 03-development/tests/test_fr02.py | — |
+| FR-03 | verified | .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/breaker.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/executor.py (+5) | 03-development/tests/test_fr03.py | — |
+| FR-04 | verified | .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/cache.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/storage/cache_store.py (+3) | 03-development/tests/test_fr04.py | — |
+| FR-05 | verified | .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/main.py, 03-development/src/taskq_plus/cli/commands.py (+1) | 03-development/tests/test_fr05.py | — |
+| FR-06 | verified | .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/dag.py, 03-development/src/taskq_plus/cli/commands.py (+1) | 03-development/tests/test_fr06.py | — |
+| FR-07 | verified | .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/service/plugins.py, 03-development/src/taskq_plus/cli/commands.py (+1) | 03-development/tests/test_fr07.py | — |
+| FR-08 | verified | .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/commands.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/cli/main.py, .claude/worktrees/agent-afc91004aadf0cef0/03-development/src/taskq_plus/observability/__init__.py (+9) | 03-development/tests/test_fr08.py | — |
 <!-- AUTO-GEN:END -->
 
 

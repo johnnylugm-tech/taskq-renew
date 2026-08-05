@@ -1,37 +1,33 @@
 {
   "gate": 1,
   "phase": 4,
-  "fr_id": "FR-06",
-  "overall_score": 94.56,
+  "fr_id": "FR-08",
+  "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
   "breakdown": {
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "ruff check 03-development/src/ --extend-ignore RUF001,RUF002,RUF003 exit=0: All checks passed!",
-      "evidence_file": ".sessi-work/round_1/tools/linting.txt"
+      "tool_evidence": "ruff check 03-development/src/ --extend-ignore RUF001,RUF002,RUF003 exit=0: All checks passed!"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785891259626\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.669}}",
-      "evidence_file": ".sessi-work/round_1/tools/type_safety.txt"
+      "tool_evidence": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785891620743\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.633}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 20,
+      "tests_passed": 77,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "coverage run -m pytest 03-development/tests/test_fr06.py: 20 passed in 2.10s. Coverage FR-scoped (dag.py, task.py): 83.87% (models/task.py 47/47, service/dag.py 31/46). spec_cov_pct=100% (4/4 required tests present and pass); score=min(coverage_pct=84, spec_cov_pct=100)=84",
-      "evidence_file": ".sessi-work/round_1/tools/test_coverage.txt"
+      "tool_evidence": "coverage run -m pytest 03-development/tests/test_fr08.py: 77 passed in 0.92s. Coverage FR-scoped (audit.py, export.py, commands.py): 100% (audit 53/53, export 51/51, commands 345/345). spec_cov_pct=100% (3/3 required tests present and pass - test_fr08_submit_run_audit_events_share_correlation_id, test_fr08_exports_agree_and_escape_csv_fields); score=min(coverage_pct=100, spec_cov_pct=100)=100"
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "lint-imports (PYTHONPATH=03-development/src:.) exit=0: Analyzed 23 files, 29 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT",
-      "evidence_file": ".sessi-work/round_1/tools/architecture_constraints.txt"
+      "tool_evidence": "lint-imports (PYTHONPATH=03-development/src:.) exit=0: Analyzed 23 files, 29 dependencies. Contracts: 4 kept, 0 broken. storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT"
     }
   },
   "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
@@ -65,16 +61,16 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "7bb20826543f1dcb3cd501d0d5616e7dc663414705eb86dc58a967c0c96507f3",
+      "sha256": "d39f2292c770cd369b48b63a5e74ed69e8bc806503676785a25505d1de6820f6",
       "bytes": 233,
-      "head": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785891259626\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.669}}"
+      "head": "pyright --outputjson 03-development/src/ JSON: {\"version\": \"1.1.409\", \"time\": \"1785891620743\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.633}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "f21886449d655073b42f5908a39925d697f2b49c6109786eba3d4d9bef62f08d",
-      "bytes": 273,
-      "head": "coverage run -m pytest 03-development/tests/test_fr06.py: 20 passed in 2.10s. Coverage FR-scoped (dag.py, task.py): 83.87% (models/task.py 47/47, service/dag.py 31/46). spec_cov_pct=100% (4/4 required tests present and pass); score=min(coverage_pct=84, spec_cov_pct=100)=84"
+      "sha256": "5b383884d979347db6b6acd24af650155cfb0a15a95090f94e7a666fc25f4882",
+      "bytes": 395,
+      "head": "coverage run -m pytest 03-development/tests/test_fr08.py: 77 passed in 0.92s. Coverage FR-scoped (audit.py, export.py, commands.py): 100% (audit 53/53, export 51/51, commands 345/345). spec_cov_pct=100% (3/3 required tests present and pass - test_fr08_submit_run_audit_events_share_correlation_id, test_fr08_exports_agree_and_escape_csv_fields); score=min(coverage_pct=100, spec_cov_pct=100)=100"
     },
     "architecture_constraints": {
       "source": "tool_evidence (inline)",

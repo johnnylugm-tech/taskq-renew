@@ -499,3 +499,554 @@ def test_fr07_inprocess_disabled_hook_is_skipped(
         assert "plugin_error" not in content, (
             f"disabled record must not emit plugin_error; got: {content!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# In-process unit coverage for `taskq_plus.service.plugins`
+# ---------------------------------------------------------------------------
+# The four acceptance cases above drive the real `python -m taskq_plus`
+# entry point, which is the user-facing contract TEST_SPEC rows 1-4 pin.
+# A child process is not measured by the parent's coverage run (the
+# GATE1 SUBPROCESS COVERAGE CEILING noted in the module docstring), so
+# the loader/dispatcher internals need in-process tests to be measured
+# at all. The cases below unit-test each documented branch of
+# `PluginRegistry` and the audit-append helper directly.
+
+
+def _plugins_module():
+    """Import `taskq_plus.service.plugins` with `src/` on `sys.path`.
+
+    The conftest puts `src/` on `sys.path` from an autouse *fixture*,
+    which runs at call time rather than at module-import time, so the
+    import is deferred into the test body (the same pattern the
+    disabled-hook test above uses).
+    """
+    return importlib.import_module("taskq_plus.service.plugins")
+
+
+def _fake_module(**hooks):
+    """Build a stand-in plugin module exposing exactly `hooks`.
+
+    `_call_hook` only does attribute access on the module object, so a
+    `SimpleNamespace` is a faithful stand-in and lets a test choose the
+    hook's behaviour (raise vs. record the call) without shipping a new
+    file under `_test_plugins/`.
+    """
+    return SimpleNamespace(**hooks)
+
+
+def test_fr07_inprocess_audit_path_is_under_taskq_home(taskq_home):
+    """`_audit_path()` resolves to `$TASKQ_HOME/audit.jsonl` (SPEC §5.2)."""
+    plugins_mod = _plugins_module()
+
+    assert plugins_mod._audit_path() == taskq_home / "audit.jsonl", (
+        f"audit log must resolve under $TASKQ_HOME; got "
+        f"{plugins_mod._audit_path()!r}"
+    )
+
+
+def test_fr07_inprocess_parse_plugin_specs_strips_and_drops_blanks():
+    """`parse_plugin_specs` strips whitespace and drops empty segments.
+
+    A trailing comma or an all-blank `TASKQ_PLUGINS` must yield no
+    specs rather than an empty-string spec — an empty spec would fail
+    the name regex and be surfaced to the operator as a bogus
+    `rejected` record.
+    """
+    plugins_mod = _plugins_module()
+
+    assert plugins_mod.parse_plugin_specs("a.b, c ,,d,") == [
+        "a.b",
+        "c",
+        "d",
+    ], "specs must be stripped with blank segments dropped"
+    assert plugins_mod.parse_plugin_specs("") == [], (
+        "an empty allowlist must yield no specs"
+    )
+    assert plugins_mod.parse_plugin_specs("  ,  ,") == [], (
+        "an all-blank allowlist must yield no specs, not empty specs"
+    )
+
+
+def test_fr07_inprocess_append_audit_event_appends_jsonl(taskq_home):
+    """`append_audit_event` appends one JSON object per call.
+
+    NFR-03 pins append semantics for `audit.jsonl`: a second event must
+    not truncate the first, and each line must be independently
+    decodable.
+    """
+    plugins_mod = _plugins_module()
+
+    plugins_mod.append_audit_event({"event": "plugin_error", "seq": 1})
+    plugins_mod.append_audit_event({"event": "plugin_disabled", "seq": 2})
+
+    events = _read_audit_jsonl(taskq_home)
+    assert [event["seq"] for event in events] == [1, 2], (
+        f"both events must be appended in order; got {events!r}"
+    )
+    assert [event["event"] for event in events] == [
+        "plugin_error",
+        "plugin_disabled",
+    ], f"event discriminators must round-trip; got {events!r}"
+
+
+def test_fr07_inprocess_append_audit_event_serialises_non_json_values(
+    taskq_home,
+):
+    """Non-JSON-serialisable values fall back to `str` instead of raising.
+
+    `append_audit_event` passes `default=str` to `json.dumps` so an
+    audit append can never itself become the reason a plugin error goes
+    unrecorded.
+    """
+    plugins_mod = _plugins_module()
+
+    plugins_mod.append_audit_event(
+        {"event": "plugin_error", "detail": {"path": Path("/tmp/x")}}
+    )
+
+    events = _read_audit_jsonl(taskq_home)
+    assert len(events) == 1, f"exactly one event expected; got {events!r}"
+    assert events[0]["detail"]["path"] == "/tmp/x", (
+        f"a non-serialisable value must be stringified; got {events[0]!r}"
+    )
+
+
+def test_fr07_inprocess_records_property_returns_a_snapshot():
+    """`records` hands back a copy, not the live internal list.
+
+    Mutating the returned list must not corrupt the registry, otherwise
+    a `plugins list` caller could silently drop entries the dispatcher
+    still iterates.
+    """
+    plugins_mod = _plugins_module()
+
+    registry = plugins_mod.PluginRegistry(plugin_env="")
+    registry._records.append(plugins_mod.PluginRecord(name="a"))
+
+    snapshot = registry.records
+    snapshot.clear()
+
+    assert len(registry.records) == 1, (
+        "mutating the `records` snapshot must not affect the registry"
+    )
+
+
+def test_fr07_inprocess_load_resolves_every_spec_without_raising():
+    """`load()` produces one record per spec and never raises.
+
+    The allowlist mixes a loadable module, a regex-rejected path form
+    and an unimportable name; the loader must return a record for each
+    so one bad spec cannot hide the rest from `plugins list`.
+    """
+    sys.path.insert(0, _test_plugins_path())
+    plugins_mod = _plugins_module()
+
+    registry = plugins_mod.PluginRegistry(
+        plugin_env="taskq_test_plugins.noop,../evil.py,no_such_module_xyz"
+    )
+    registry.load()
+
+    records = {record.name: record for record in registry.records}
+    assert set(records) == {
+        "taskq_test_plugins.noop",
+        "../evil.py",
+        "no_such_module_xyz",
+    }, f"every spec must yield a record; got {sorted(records)!r}"
+    assert records["taskq_test_plugins.noop"].status == "loaded"
+    assert records["../evil.py"].status == "rejected"
+    assert records["no_such_module_xyz"].status == "failed"
+
+
+def test_fr07_inprocess_registry_defaults_to_taskq_plugins_env(monkeypatch):
+    """With no explicit override the registry reads `TASKQ_PLUGINS`."""
+    sys.path.insert(0, _test_plugins_path())
+    plugins_mod = _plugins_module()
+    monkeypatch.setenv("TASKQ_PLUGINS", "taskq_test_plugins.noop")
+
+    registry = plugins_mod.PluginRegistry()
+    registry.load()
+
+    assert [record.name for record in registry.records] == [
+        "taskq_test_plugins.noop"
+    ], "the registry must default to the TASKQ_PLUGINS allowlist"
+
+
+def test_fr07_inprocess_resolve_spec_loads_module_and_lists_hooks():
+    """A well-formed spec is imported and its recognised hooks recorded."""
+    sys.path.insert(0, _test_plugins_path())
+    plugins_mod = _plugins_module()
+
+    record = plugins_mod.PluginRegistry._resolve_spec(
+        "taskq_test_plugins.noop"
+    )
+
+    assert record.status == "loaded", f"got status={record.status!r}"
+    assert record.error is None, f"a loaded record carries no error; {record!r}"
+    assert record.module is not None, "a loaded record must carry the module"
+    assert record.hooks == ["pre_run", "post_run"], (
+        f"hooks must be reported in HOOK_NAMES order; got {record.hooks!r}"
+    )
+
+
+def test_fr07_inprocess_resolve_spec_rejects_path_form_before_import():
+    """A path form fails the regex and is never handed to importlib.
+
+    NFR-02: the whitelist check must run *before* the import, so the
+    test also asserts `importlib.import_module` was not called at all.
+    """
+    plugins_mod = _plugins_module()
+    calls = []
+
+    original = plugins_mod.importlib.import_module
+
+    def _spy(name, *args, **kwargs):
+        calls.append(name)
+        return original(name, *args, **kwargs)
+
+    plugins_mod.importlib.import_module = _spy
+    try:
+        record = plugins_mod.PluginRegistry._resolve_spec("../evil.py")
+    finally:
+        plugins_mod.importlib.import_module = original
+
+    assert record.status == "rejected", f"got status={record.status!r}"
+    assert record.error == "not a module name", f"got error={record.error!r}"
+    assert record.module is None, "a rejected spec must not carry a module"
+    assert calls == [], (
+        f"a path form must be rejected before any import; importlib was "
+        f"called with {calls!r}"
+    )
+
+
+def test_fr07_inprocess_resolve_spec_records_import_failure():
+    """An unimportable (but well-formed) name becomes a `failed` record."""
+    plugins_mod = _plugins_module()
+
+    record = plugins_mod.PluginRegistry._resolve_spec("no_such_module_xyz")
+
+    assert record.status == "failed", f"got status={record.status!r}"
+    assert record.module is None, "a failed import must not carry a module"
+    assert "ModuleNotFoundError" in (record.error or ""), (
+        f"the error must name the exception type; got {record.error!r}"
+    )
+
+
+def test_fr07_inprocess_resolve_spec_flags_module_with_no_hooks():
+    """An importable module exposing neither hook is reported as `failed`.
+
+    The import itself succeeded, so the record still carries the module
+    object — the operator needs to distinguish "could not import" from
+    "imported but exposes no dispatchable hook".
+    """
+    plugins_mod = _plugins_module()
+
+    record = plugins_mod.PluginRegistry._resolve_spec("json")
+
+    assert record.status == "failed", f"got status={record.status!r}"
+    assert record.error == "no pre_run or post_run hook", (
+        f"got error={record.error!r}"
+    )
+    assert record.hooks == [], f"got hooks={record.hooks!r}"
+    assert record.module is not None, (
+        "a module that imported must be retained even with no hooks"
+    )
+
+
+def test_fr07_inprocess_run_pre_and_run_post_dispatch_hooks(taskq_home):
+    """`run_pre`/`run_post` invoke the matching hook with the spec's args.
+
+    `pre_run` receives the task; `post_run` receives the task and the
+    result (SPEC §3 FR-07 hook signatures).
+    """
+    plugins_mod = _plugins_module()
+    seen = []
+
+    module = _fake_module(
+        pre_run=lambda task: seen.append(("pre_run", task)),
+        post_run=lambda task, result: seen.append(("post_run", task, result)),
+    )
+    record = plugins_mod.PluginRecord(
+        name="fake",
+        module=module,
+        hooks=["pre_run", "post_run"],
+        status="loaded",
+    )
+    registry = plugins_mod.PluginRegistry(plugin_env="")
+    registry._records.append(record)
+
+    task = SimpleNamespace(command="echo x")
+    result = SimpleNamespace(exit_code=0)
+    registry.run_pre(task, task_id="00000000", correlation_id="corr-1")
+    registry.run_post(
+        task, result, task_id="00000000", correlation_id="corr-1"
+    )
+
+    assert seen == [
+        ("pre_run", task),
+        ("post_run", task, result),
+    ], f"both hooks must receive their documented arguments; got {seen!r}"
+    assert record.consecutive_failures == 0, (
+        "successful dispatch must leave the failure counter at zero"
+    )
+
+
+def test_fr07_inprocess_phase_skips_disabled_and_hookless_records(taskq_home):
+    """Dispatch skips disabled records and records lacking the hook.
+
+    Three records share one registry: a disabled one, one that declares
+    no `pre_run`, and a healthy one. Only the healthy record's hook may
+    fire, so a regression that drops either guard is caught.
+    """
+    plugins_mod = _plugins_module()
+    seen = []
+
+    disabled = plugins_mod.PluginRecord(
+        name="disabled",
+        module=_fake_module(pre_run=lambda task: seen.append("disabled")),
+        hooks=["pre_run"],
+        status="loaded",
+    )
+    disabled.disabled = True
+    post_only = plugins_mod.PluginRecord(
+        name="post-only",
+        module=_fake_module(
+            post_run=lambda task, result: seen.append("post-only")
+        ),
+        hooks=["post_run"],
+        status="loaded",
+    )
+    healthy = plugins_mod.PluginRecord(
+        name="healthy",
+        module=_fake_module(pre_run=lambda task: seen.append("healthy")),
+        hooks=["pre_run"],
+        status="loaded",
+    )
+
+    registry = plugins_mod.PluginRegistry(plugin_env="")
+    registry._records.extend([disabled, post_only, healthy])
+    registry.run_pre(
+        SimpleNamespace(command="echo x"),
+        task_id="00000000",
+        correlation_id="corr-1",
+    )
+
+    assert seen == ["healthy"], (
+        f"only the healthy record's pre_run may fire; got {seen!r}"
+    )
+
+
+def test_fr07_inprocess_record_without_module_is_skipped(taskq_home):
+    """A record carrying no module is skipped rather than dereferenced.
+
+    `_resolve_spec` only populates `hooks` after assigning `module`, so
+    this state is defensive — but the guard must hold, otherwise a
+    rejected/failed record would raise `AttributeError` on dispatch and
+    abort the run the FR-07 isolation rule protects.
+    """
+    plugins_mod = _plugins_module()
+
+    record = plugins_mod.PluginRecord(
+        name="rejected",
+        module=None,
+        hooks=["pre_run"],
+        status="rejected",
+    )
+    registry = plugins_mod.PluginRegistry(plugin_env="")
+    registry._records.append(record)
+
+    registry.run_pre(
+        SimpleNamespace(command="echo x"),
+        task_id="00000000",
+        correlation_id="corr-1",
+    )
+
+    assert record.consecutive_failures == 0, (
+        "a module-less record must be skipped, not counted as a failure"
+    )
+    assert _read_audit_jsonl(taskq_home) == [], (
+        "skipping a module-less record must not emit an audit event"
+    )
+
+
+def test_fr07_inprocess_hook_failure_emits_plugin_error_event(taskq_home):
+    """A raising hook is caught, counted and recorded as `plugin_error`.
+
+    AC-07-2: the exception must not propagate out of the dispatcher.
+    The audit envelope must name the plugin, the hook and the current
+    consecutive-failure count so the operator can act on it.
+    """
+    plugins_mod = _plugins_module()
+
+    def _boom(task):
+        raise RuntimeError("kaboom")
+
+    record = plugins_mod.PluginRecord(
+        name="boom",
+        module=_fake_module(pre_run=_boom),
+        hooks=["pre_run"],
+        status="loaded",
+    )
+    registry = plugins_mod.PluginRegistry(plugin_env="")
+    registry._records.append(record)
+
+    registry.run_pre(
+        SimpleNamespace(command="echo x"),
+        task_id="deadbeef",
+        correlation_id="corr-9",
+    )
+
+    assert record.consecutive_failures == 1, (
+        f"a raising hook must bump the counter once; got "
+        f"{record.consecutive_failures}"
+    )
+    assert record.disabled is False, (
+        "one failure is below DISABLE_THRESHOLD; the plugin stays enabled"
+    )
+
+    errors = _audit_events_of_kind(_read_audit_jsonl(taskq_home), "plugin_error")
+    assert len(errors) == 1, f"exactly one plugin_error expected; got {errors!r}"
+    event = errors[0]
+    assert event["task_id"] == "deadbeef", f"got {event!r}"
+    assert event["correlation_id"] == "corr-9", f"got {event!r}"
+    assert event["detail"]["plugin"] == "boom", f"got {event!r}"
+    assert event["detail"]["hook"] == "pre_run", f"got {event!r}"
+    assert event["detail"]["consecutive_failures"] == 1, f"got {event!r}"
+    assert "RuntimeError: kaboom" == event["detail"]["error"], f"got {event!r}"
+
+
+def test_fr07_inprocess_post_run_failure_is_isolated(taskq_home):
+    """A raising `post_run` is isolated on the same terms as `pre_run`."""
+    plugins_mod = _plugins_module()
+
+    def _boom(task, result):
+        raise ValueError("post boom")
+
+    record = plugins_mod.PluginRecord(
+        name="boom-post",
+        module=_fake_module(post_run=_boom),
+        hooks=["post_run"],
+        status="loaded",
+    )
+    registry = plugins_mod.PluginRegistry(plugin_env="")
+    registry._records.append(record)
+
+    registry.run_post(
+        SimpleNamespace(command="echo x"),
+        SimpleNamespace(exit_code=0),
+        task_id="deadbeef",
+        correlation_id="corr-9",
+    )
+
+    errors = _audit_events_of_kind(_read_audit_jsonl(taskq_home), "plugin_error")
+    assert len(errors) == 1, f"exactly one plugin_error expected; got {errors!r}"
+    assert errors[0]["detail"]["hook"] == "post_run", f"got {errors[0]!r}"
+    assert errors[0]["detail"]["error"] == "ValueError: post boom", (
+        f"got {errors[0]!r}"
+    )
+
+
+def test_fr07_inprocess_third_consecutive_failure_disables_plugin(taskq_home):
+    """AC-07-3: the plugin is disabled on the `DISABLE_THRESHOLD`-th failure.
+
+    The boundary is asserted from both sides — the plugin is still
+    enabled after `DISABLE_THRESHOLD - 1` failures and disabled on the
+    next one — so an off-by-one (disabling at 2, or at 4) fails here.
+    """
+    plugins_mod = _plugins_module()
+    threshold = plugins_mod.DISABLE_THRESHOLD
+    calls = []
+
+    def _boom(task):
+        calls.append("call")
+        raise RuntimeError("kaboom")
+
+    record = plugins_mod.PluginRecord(
+        name="boom",
+        module=_fake_module(pre_run=_boom),
+        hooks=["pre_run"],
+        status="loaded",
+    )
+    registry = plugins_mod.PluginRegistry(plugin_env="")
+    registry._records.append(record)
+
+    task = SimpleNamespace(command="echo x")
+    for _ in range(threshold - 1):
+        registry.run_pre(task, task_id="deadbeef", correlation_id="corr-9")
+    assert record.disabled is False, (
+        f"the plugin must survive {threshold - 1} failures"
+    )
+
+    registry.run_pre(task, task_id="deadbeef", correlation_id="corr-9")
+    assert record.disabled is True, (
+        f"the plugin must be disabled on failure #{threshold}"
+    )
+
+    events = _read_audit_jsonl(taskq_home)
+    assert len(_audit_events_of_kind(events, "plugin_error")) == threshold, (
+        f"one plugin_error per failure expected; got {events!r}"
+    )
+    disabled_events = _audit_events_of_kind(events, "plugin_disabled")
+    assert len(disabled_events) == 1, (
+        f"exactly one plugin_disabled event expected; got {events!r}"
+    )
+    assert disabled_events[0]["detail"]["plugin"] == "boom", (
+        f"the disable event must name the plugin; got {disabled_events[0]!r}"
+    )
+    assert (
+        disabled_events[0]["detail"]["consecutive_failures"] == threshold
+    ), f"got {disabled_events[0]!r}"
+
+    # Once disabled the plugin is skipped for the remainder of the run.
+    registry.run_pre(task, task_id="deadbeef", correlation_id="corr-9")
+    assert len(calls) == threshold, (
+        f"a disabled plugin must not be invoked again; got {len(calls)} calls"
+    )
+
+
+def test_fr07_inprocess_success_resets_consecutive_failure_counter(taskq_home):
+    """A successful hook resets the counter, so failures must be *consecutive*.
+
+    Alternating fail/succeed past `DISABLE_THRESHOLD` total failures
+    must never disable the plugin — this is what makes the SPEC's
+    "連續 3 次" wording load-bearing rather than a running total.
+    """
+    plugins_mod = _plugins_module()
+    threshold = plugins_mod.DISABLE_THRESHOLD
+    should_raise = {"value": True}
+
+    def _flaky(task):
+        if should_raise["value"]:
+            raise RuntimeError("kaboom")
+
+    record = plugins_mod.PluginRecord(
+        name="flaky",
+        module=_fake_module(pre_run=_flaky),
+        hooks=["pre_run"],
+        status="loaded",
+    )
+    registry = plugins_mod.PluginRegistry(plugin_env="")
+    registry._records.append(record)
+
+    task = SimpleNamespace(command="echo x")
+    for _ in range(threshold + 2):
+        should_raise["value"] = True
+        registry.run_pre(task, task_id="deadbeef", correlation_id="corr-9")
+        assert record.consecutive_failures == 1, (
+            f"counter must be 1 after a single failure; got "
+            f"{record.consecutive_failures}"
+        )
+        should_raise["value"] = False
+        registry.run_pre(task, task_id="deadbeef", correlation_id="corr-9")
+        assert record.consecutive_failures == 0, (
+            "a successful hook must reset the consecutive-failure counter"
+        )
+
+    assert record.disabled is False, (
+        f"alternating fail/succeed must never disable the plugin even past "
+        f"{threshold} total failures"
+    )
+    events = _read_audit_jsonl(taskq_home)
+    assert _audit_events_of_kind(events, "plugin_disabled") == [], (
+        f"no plugin_disabled event may be emitted; got {events!r}"
+    )

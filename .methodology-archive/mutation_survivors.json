@@ -1,0 +1,471 @@
+{
+  "generated_at": "2026-08-05T00:16:26.255768+00:00",
+  "tool": "mutmut",
+  "survivor_count": 77,
+  "survivors": [
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/breaker.py",
+      "line": null,
+      "mutant_id": "97",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/breaker.py",
+      "line": null,
+      "mutant_id": "101",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/breaker.py",
+      "line": null,
+      "mutant_id": "111",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/breaker.py",
+      "line": null,
+      "mutant_id": "120",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py",
+      "line": null,
+      "mutant_id": "159",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py",
+      "line": null,
+      "mutant_id": "162",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py",
+      "line": null,
+      "mutant_id": "163",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py",
+      "line": null,
+      "mutant_id": "165",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py",
+      "line": null,
+      "mutant_id": "166",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py",
+      "line": null,
+      "mutant_id": "168",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py",
+      "line": null,
+      "mutant_id": "169",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py",
+      "line": null,
+      "mutant_id": "179",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/dag.py",
+      "line": null,
+      "mutant_id": "147",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/dag.py",
+      "line": null,
+      "mutant_id": "150",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "187",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "189",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "190",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "191",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "192",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "193",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "196",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "198",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "200",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "208",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "209",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "210",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "211",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "213",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "214",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "215",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "232",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "241",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py",
+      "line": null,
+      "mutant_id": "244",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "18",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "22",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "23",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "24",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "25",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "26",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "30",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "33",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "43",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "44",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "48",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "49",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "57",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "62",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "67",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "74",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py",
+      "line": null,
+      "mutant_id": "88",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "268",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "287",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "307",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "309",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "310",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "314",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "315",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "318",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py",
+      "line": null,
+      "mutant_id": "321",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/cache_store.py",
+      "line": null,
+      "mutant_id": "256",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/cache_store.py",
+      "line": null,
+      "mutant_id": "258",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/cache_store.py",
+      "line": null,
+      "mutant_id": "259",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/cache_store.py",
+      "line": null,
+      "mutant_id": "263",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/cache_store.py",
+      "line": null,
+      "mutant_id": "264",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "323",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "328",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "330",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "336",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "347",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "358",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "359",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "361",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "362",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "366",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "367",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "370",
+      "mutator": null
+    },
+    {
+      "file": "/Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py",
+      "line": null,
+      "mutant_id": "373",
+      "mutator": null
+    }
+  ],
+  "raw": "To apply a mutant on disk:\n    mutmut apply <id>\n\nTo show a mutant:\n    mutmut show <id>\n\n\nSurvived 🙁 (77)\n\n---- /Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/breaker.py (4) ----\n\n97, 101, 111, 120\n\n---- /Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/cache.py (8) ----\n\n159, 162-163, 165-166, 168-169, 179\n\n---- /Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/dag.py (2) ----\n\n147, 150\n\n---- /Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/executor.py (19) ----\n\n187, 189-193, 196, 198, 200, 208-211, 213-215, 232, 241, 244\n\n---- /Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/service/plugins.py (17) ----\n\n18, 22-26, 30, 33, 43-44, 48-49, 57, 62, 67, 74, 88\n\n---- /Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/breaker_store.py (9) ----\n\n268, 287, 307, 309-310, 314-315, 318, 321\n\n---- /Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/cache_store.py (5) ----\n\n256, 258-259, 263-264\n\n---- /Users/johnny/projects/taskq-renew/03-development/src/taskq_plus/storage/task_store.py (13) ----\n\n323, 328, 330, 336, 347, 358-359, 361-362, 366-367, 370, 373",
+  "reported_total": 77
+}

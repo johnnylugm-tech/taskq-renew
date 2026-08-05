@@ -1,8 +1,8 @@
 # Harness Methodology — Session Handover
 
-**Checkpoint**: `P8-entry-20260805`  
+**Checkpoint**: `P8-exit-20260805`  
 **Phase**: P8 — Config & Records  
-**Generated**: 2026-08-05T08:34:52Z
+**Generated**: 2026-08-05T10:16:22Z
 
 > ⚠️  **開始下一個工作階段前，請先執行 `/compact` 壓縮上下文**，再從「接下來的工作」繼續。
 
@@ -31,7 +31,7 @@ git clone --recurse-submodules https://github.com/johnnylugm-tech/taskq-renew /t
 git log --oneline -3
 
 # Confirm FSM state
-cat .methodology/state.json   # expected: phase=8 state=RUNNING last_gate=4 last_fr=FR-08
+cat .methodology/state.json   # expected: phase=8 state=RUNNING last_gate=1 last_fr=FR-01
 
 # Read active plan
 cat .methodology/phase8_plan.md
@@ -41,23 +41,24 @@ cat .methodology/phase8_plan.md
 |------|----|
 | Remote | `https://github.com/johnnylugm-tech/taskq-renew` |
 | Branch | `main` |
-| State | `phase=8 state=RUNNING last_gate=4 last_fr=FR-08` |
+| State | `phase=8 state=RUNNING last_gate=1 last_fr=FR-01` |
 | Plan | `.methodology/phase8_plan.md` |
 
 ---
 
 ## 任務背景
 
-Phase 7 complete (8/8 FRs Gate 1 PASS). Gate 4 (score=93.57). Advancing to Phase 8.
+P8 Config & Records: pipeline fully complete.
 
 ## 目前執行狀況
 
-Phase 7: 8/8 FRs Gate 1 PASS. Gate 4 (score=93.57) — quality_complete. Ready to begin Phase 8.
+P8 Config & Records complete. All 8 phases done.
 
 ## 接下來的工作
 
-1. Follow SKILL.md §0.1 Phase 8 entry checklist
-2. Read the Phase 8 plan and execute
+1. Pipeline complete — all phases P1–P8 finished
+2. Review final HANDOVER.md and git tag for Gate 4
+3. Archive session via /compact
 
 ## 注意事項
 

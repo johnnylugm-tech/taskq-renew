@@ -1,0 +1,36 @@
+{
+  "gate": 1,
+  "phase": 8,
+  "fr_id": "FR-08",
+  "overall_score": 100.0,
+  "quality_complete": true,
+  "rounds_used": 1,
+  "breakdown": {
+    "linting": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "All checks passed!\n"
+    },
+    "type_safety": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785924511401\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.672}}"
+    },
+    "test_coverage": {
+      "score": 100.0,
+      "threshold": 100,
+      "tests_passed": 322,
+      "tests_failed": 0,
+      "tests_skipped": 0,
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 322 items\n\n03-development/tests/test_fr08.py ...................................... [ 11%]\n.........................................                                [ 24%]\n03-development/tests/test_fr01.py ...................................... [ 36%]\n.......................................                                  [ 48%]\n03-development/tests/test_fr02.py ...................................... [ 60%]\n..............................                                           [ 69%]\n03-development/tests/test_fr05.py ...................................... [ 81%]\n............                                                             [ 85%]\n03-development/tests/test_fr07.py ...................................... [ 96%]\n..........                                                               [100%]\n\n============================== 322 passed in 11.41s ==============================\nCoverage totals: percent_covered=100.0, covered_lines=464, num_statements=464, missing_lines=0 across FR-08 source files (audit.py 53/53, export.py 51/51, commands.py 360/360). Required FR-08 spec tests (3/3 present): test_fr08_submit_run_audit_events_share_correlation_id, test_fr08_exports_agree_and_escape_csv_fields (x2). 0 failed, 0 skipped."
+    },
+    "architecture_constraints": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "Contracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\nContracts: 4 kept, 0 broken."
+    }
+  },
+  "composite_score": 100.0,
+  "verdict": "PASS",
+  "passed": true
+}

@@ -1,0 +1,37 @@
+{
+  "community_cohesion": {
+    "score": 77.8,
+    "healthy": 7,
+    "total": 9,
+    "total_all": 12,
+    "excluded_test_communities": 3,
+    "unhealthy": [
+      {
+        "name": "storage-load-sub1",
+        "cohesion": 0.0,
+        "size": 12,
+        "issues": [
+          "low_cohesion(0.00)"
+        ]
+      },
+      {
+        "name": "storage-load-sub2",
+        "cohesion": 0.0,
+        "size": 11,
+        "issues": [
+          "low_cohesion(0.00)"
+        ]
+      }
+    ],
+    "_cohesion_threshold": 0.25,
+    "_community_oversized": 50,
+    "_community_min_size": 5,
+    "_extra_excludes": []
+  },
+  "large_functions_critical": [],
+  "large_functions_penalty": 0,
+  "architecture_score": 77.8,
+  "_source": "framework-independent",
+  "_baseline_sha": "c9f21f66d1e3b077714ec9a288341b7e2ddc43b9",
+  "_baseline_phase": 6
+}

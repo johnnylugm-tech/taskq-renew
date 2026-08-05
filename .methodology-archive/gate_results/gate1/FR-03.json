@@ -1,0 +1,93 @@
+{
+  "gate": 1,
+  "phase": 8,
+  "fr_id": "FR-04",
+  "overall_score": 100.0,
+  "quality_complete": true,
+  "rounds_used": 1,
+  "breakdown": {
+    "linting": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "All checks passed!"
+    },
+    "type_safety": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785924484800\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.662}}"
+    },
+    "test_coverage": {
+      "score": 100.0,
+      "threshold": 100,
+      "tests_passed": 21,
+      "tests_failed": 0,
+      "tests_skipped": 0,
+      "tool_evidence": "21 passed in 2.60s. Coverage: 100.0% (73/73 lines) across cache.py + cache_store.py. Required FR-04 spec tests (3/3 present): test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution."
+    },
+    "architecture_constraints": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_evidence": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken (storage-not-pulling-cli, models-not-pulling-storage, models-not-pulling-cli, config-is-independent)."
+    }
+  },
+  "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
+  "enforcer_surface": {
+    "core/quality_gate": "2429c856619c1f8afb3c0ff6e09c27f5e4765e0c",
+    "harness/harness_bridge.py": "92bca94bdae19024ad1c2ad97c50a1d645dcf25d",
+    "harness/gate_configs": "8735bb31aaa3bd32117548e651ec1c605a255f10"
+  },
+  "evidence_digest": {
+    "mutation_testing::setup.cfg": {
+      "source": "setup.cfg (score-altering exclusions)",
+      "kind": "file",
+      "sha256": "2042aa7a848ef0252794d6a488aad055c926e29a53de80cc496e3b33c06e8e16",
+      "bytes": 2332,
+      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[tool:pytest]\n# The harness's mutation-test workdir only copies setup.cfg (not pytest.ini),\n# so the framework's promotion (mutation_enforcer.py:388-424) rewrites this\n# entry to an absolute path that pytest can resolve inside its temp dir.\n# Without it mutmut's baseline test-suite run fails collection with\n# `ModuleNotFoundError: taskq_plus` because no `from taskq_plus...` import\n# can be resolved at collection time.\n#"
+    },
+    "test_coverage::pytest.ini": {
+      "source": "pytest.ini (score-altering exclusions)",
+      "kind": "file",
+      "sha256": "54b69fe4dbee31b5dd7974ad6898a8ec3ba0e98967aa25bfe5f0b639e9d4c0e8",
+      "bytes": 1485,
+      "head": "[pytest]\n# The harness vendored under `harness/` carries its own test suite\n# (`harness/tests/`) which imports `harness_cli` and crashes on\n# Python <3.10 with `SystemExit(1)`. When the gate's cross-validation\n# invokes `pytest {root}` for `pytest-benchmark` (or any test-family\n# tool that takes the project root as a path), pytest would otherwise\n# discover the harness tests alongside the project tests and abort\n# collection. Keep the harness suite out of root-level pytest runs.\n# Explicit `-p pytest_benchmark` is REQUIRED: the mutation-testing\n# framework (mutation_enforcer.py:494) sets PYTEST_DISABLE_PLUGIN_AUTOLOAD=1\n# in mutmut's subprocess env, and only re-enables xdist/pytest_cov based\n# on the resolved runner. Without this, the baseline test-suite run\n# errors every benchmark with \"fixture 'benchmark' not found\" and\n# mutmut reports score=null. Loading the plugin here is harmless for\n# non-benchmark tests — pytest-benchmark only triggers on the fixture.\naddopts =\n    --ignore=harness/tests\n    --ignore=harness/tests-cli\n    -p benchmark\n# `taskq_plus` lives under `03-development/src`; without this pytest"
+    },
+    "test_coverage::setup.cfg": {
+      "source": "setup.cfg (score-altering exclusions)",
+      "kind": "file",
+      "sha256": "2042aa7a848ef0252794d6a488aad055c926e29a53de80cc496e3b33c06e8e16",
+      "bytes": 2332,
+      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[tool:pytest]\n# The harness's mutation-test workdir only copies setup.cfg (not pytest.ini),\n# so the framework's promotion (mutation_enforcer.py:388-424) rewrites this\n# entry to an absolute path that pytest can resolve inside its temp dir.\n# Without it mutmut's baseline test-suite run fails collection with\n# `ModuleNotFoundError: taskq_plus` because no `from taskq_plus...` import\n# can be resolved at collection time.\n#"
+    },
+    "linting": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
+      "bytes": 18,
+      "head": "All checks passed!"
+    },
+    "type_safety": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "ac811279eba51db678e14ec6c4eb1b4b1ddcfece558382c9d3c8c9a09f164054",
+      "bytes": 186,
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785924484800\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.662}}"
+    },
+    "test_coverage": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "9a547fbb59bedccdfa23a3aaf894d6b56ace91dab206f9180ea227fd282ddfc1",
+      "bytes": 265,
+      "head": "21 passed in 2.60s. Coverage: 100.0% (73/73 lines) across cache.py + cache_store.py. Required FR-04 spec tests (3/3 present): test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution."
+    },
+    "architecture_constraints": {
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "75d82f42830f46a66ac403eca91d4a5810c710851e1f4fc97a5c9d502c538c94",
+      "bytes": 165,
+      "head": "Analyzed 23 files, 30 dependencies. Contracts: 4 kept, 0 broken (storage-not-pulling-cli, models-not-pulling-storage, models-not-pulling-cli, config-is-independent)."
+    }
+  },
+  "composite_score": 100.0,
+  "verdict": "PASS",
+  "passed": true
+}

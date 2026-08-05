@@ -1,0 +1,203 @@
+{
+  "quality_complete": true,
+  "breakdown": {
+    "linting": {
+      "score": 100.0,
+      "threshold": 90,
+      "tool_output": ".sessi-work/round_7/tools/linting.txt",
+      "tool_evidence": "ruff check .: \"All checks passed!\" (ruff 0.15.13); --output-format json --exit-zero: [] -> 0 violations, score 100"
+    },
+    "type_safety": {
+      "score": 100.0,
+      "threshold": 85,
+      "tool_output": ".sessi-work/round_7/tools/type_safety.txt",
+      "tool_evidence": "pyright 03-development/src/ --outputjson: summary.errorCount=0, warningCount=0, filesAnalyzed=22"
+    },
+    "test_coverage": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_output": ".sessi-work/round_7/tools/test_coverage.txt",
+      "tool_evidence": "pytest 03-development/tests --cov=03-development/src: TOTAL 1105 0 100%; 330 passed, 4 skipped"
+    },
+    "security": {
+      "score": 98.0,
+      "threshold": 80,
+      "tool_output": ".sessi-work/round_7/tools/security.txt",
+      "tool_evidence": "bandit -r 03-development/src -f json: 0 HIGH, 0 MEDIUM, 2 LOW (B404/B603 executor.py:32,137) -> 100-2x1=98"
+    },
+    "secrets_scanning": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_output": ".sessi-work/round_7/tools/secrets_scanning.txt",
+      "tool_evidence": "gitleaks detect --source .: 64 commits scanned, 'no leaks found', exit=0"
+    },
+    "license_compliance": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_output": ".sessi-work/round_7/tools/license_compliance.txt",
+      "tool_evidence": "scancode --license 03-development/src/: 60 files scanned, detected license expressions: [] (0 disallowed), exit=0"
+    },
+    "mutation_testing": {
+      "score": 79.8,
+      "threshold": 70,
+      "tool_output": ".sessi-work/round_7/tools/mutation_testing.txt",
+      "tool_evidence": "framework: compute_mutation_score → killed=305 survived=77 score=79.8 [scope: 03-development/src/taskq_plus/service, 03-development/src/taskq_plus/storage, 10 files, excluded: ['__init__.py']]",
+      "framework_override": true,
+      "objective_primary": true
+    },
+    "integration_coverage": {
+      "score": 82.0,
+      "threshold": 80,
+      "tool_output": ".sessi-work/round_7/tools/integration_coverage.txt",
+      "tool_evidence": "pytest 03-development/tests/integration --cov=03-development/src: TOTAL 1105 203 82%; 48 passed, 1 skipped"
+    },
+    "test_assertion_quality": {
+      "score": 96.9,
+      "threshold": 60,
+      "tool_output": ".sessi-work/round_7/tools/test_assertion_quality.txt",
+      "tool_evidence": "ast-assertions (framework tool_runners): {\"total\": 326, \"asserted\": 316, \"zero_assert\": [10 entries]} -> 100*316/326 = 96.9"
+    },
+    "execute_verification_target": {
+      "score": 100.0,
+      "threshold": 100,
+      "tool_output": ".sessi-work/round_7/tools/execute_verification_target.txt",
+      "tool_evidence": "make verify-system: 'verify-system: PASS', make exit=0"
+    },
+    "traceability": {
+      "score": 91.01123595505618,
+      "threshold": 60.0,
+      "tool_evidence": "framework: compute_trace_dimension(gate=2) → 4a=100.0% 4b=91.0% 4c=100.0% merged=91.0%",
+      "framework_override": true
+    }
+  },
+  "overall_score": null,
+  "rounds_used": 1,
+  "failing_dimensions": [],
+  "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
+  "enforcer_surface": {
+    "core/quality_gate": "88d4ab41d48bbd3aa1224cbcdd6d5a6be780dc08",
+    "harness/harness_bridge.py": "92bca94bdae19024ad1c2ad97c50a1d645dcf25d",
+    "harness/gate_configs": "8735bb31aaa3bd32117548e651ec1c605a255f10"
+  },
+  "evidence_digest": {
+    "mutation_testing::setup.cfg": {
+      "source": "setup.cfg (score-altering exclusions)",
+      "kind": "file",
+      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
+      "bytes": 1380,
+      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
+    },
+    "test_coverage::setup.cfg": {
+      "source": "setup.cfg (score-altering exclusions)",
+      "kind": "file",
+      "sha256": "4d4d4acae435577795a966db7ea2647d2e31ab29e933f756d38155801eea5353",
+      "bytes": 1380,
+      "head": "[coverage:run]\nbranch = False\n# `taskq_plus/__main__.py` is the dedicated `python -m taskq_plus`\n# entry-point module: its only executable body is the\n# `if __name__ == \"__main__\":` guard, which by construction never runs\n# under an import-based test harness. Per the Gate 1 pragma policy an\n# entry-point module is excluded at FILE level here rather than being\n# annotated with `# pragma: no cover` inline.\nomit =\n    03-development/src/taskq_plus/__main__.py\n    */taskq_plus/__main__.py\n\n[mutmut]\n# Scoped per the SAB NFR-08: mutation testing judges ONLY the\n# service-layer business logic (task execution, DAG, cache, breaker,\n# plugins) and the storage layer (task_store, breaker_store,\n# cache_store). CLI/observability/models/config are excluded because\n# the harness treats them as thin glue that mutmut wastes budget on.\n# Paths must match the SAB's mutation_testing scope_layers verbatim —\n# the gate finaliser compares strings and reports a scope disagreement"
+    },
+    "linting": {
+      "source": ".sessi-work/round_7/tools/linting.txt",
+      "kind": "file",
+      "sha256": "78040a91b18954f29636262b4a5250ecd0c00df15e99b9a653acb6f83329d7bc",
+      "bytes": 34,
+      "head": "All checks passed!\nruff 0.15.13\n[]"
+    },
+    "type_safety": {
+      "source": ".sessi-work/round_7/tools/type_safety.txt",
+      "kind": "file",
+      "sha256": "348cc057f97eb7fa047969f3360d2d459465904179a527473bc8a1af2f8f0d55",
+      "bytes": 252,
+      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785888997285\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 22,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.655\n    }\n}\n"
+    },
+    "test_coverage": {
+      "source": ".sessi-work/round_7/tools/test_coverage.txt",
+      "kind": "file",
+      "sha256": "9308df85335df7d938406c24d968c074fa8e3b99b1e780a9a0c00d0347f9e321",
+      "bytes": 2589,
+      "head": ".......................................s................................ [ 21%]\n........................................................................ [ 43%]\n........................................................................ [ 64%]\n........................................................................ [ 86%]\n..................ss.......s..................                           [100%]\n================================ tests coverage ================================\n______________ coverage: platform darwin, python 3.11.15-final-0 _______________\n\nName                                                      Stmts   Miss  Cover   Missing\n---------------------------------------------------------------------------------------\n03-development/src/taskq_plus/__init__.py                     3      0   100%\n03-development/src/taskq_plus/cli/__init__.py                 3      0   100%\n03-development/src/taskq_plus/cli/commands.py               345      0   100%\n03-development/src/taskq_plus/cli/main.py                    63      0   100%\n03-development/src/taskq_plus/config.py                       9      0   100%\n03-development/src/taskq_plus/models/__init__.py              3      0   100%\n03-development/src/taskq_plus/models/errors.py                2      0   100%\n03-development/src/taskq_plus/models/task.py                 47      0   100%\n03-development/src/taskq_plus/observability/__init__.py       1      0   100%\n03-development/src/taskq_plus/observability/audit.py         59      0   100%"
+    },
+    "security": {
+      "source": ".sessi-work/round_7/tools/security.txt",
+      "kind": "file",
+      "sha256": "2826ab6da320b3cba01ec70766906e3683acf335fffc4e1f292a2d5b85782b11",
+      "bytes": 10340,
+      "head": "[main]\tINFO\tprofile include tests: None\n[main]\tINFO\tprofile exclude tests: None\n[main]\tINFO\tcli include tests: None\n[main]\tINFO\tcli exclude tests: None\n{\n  \"errors\": [],\n  \"generated_at\": \"2026-08-05T00:16:57Z\",\n  \"metrics\": {\n    \"03-development/src/taskq_plus/__init__.py\": {\n      \"CONFIDENCE.HIGH\": 0,\n      \"CONFIDENCE.LOW\": 0,\n      \"CONFIDENCE.MEDIUM\": 0,\n      \"CONFIDENCE.UNDEFINED\": 0,\n      \"SEVERITY.HIGH\": 0,\n      \"SEVERITY.LOW\": 0,\n      \"SEVERITY.MEDIUM\": 0,\n      \"SEVERITY.UNDEFINED\": 0,\n      \"loc\": 12,\n      \"nosec\": 0,\n      \"skipped_tests\": 0"
+    },
+    "secrets_scanning": {
+      "source": ".sessi-work/round_7/tools/secrets_scanning.txt",
+      "kind": "file",
+      "sha256": "270e81e2bb526e0f7248fc6fc731194aff4c7fa715236a9d96fec28c4412309a",
+      "bytes": 269,
+      "head": "\n    ○\n    │╲\n    │ ○\n    ○ ░\n    ░    gitleaks\n\n\u001b[90m8:16AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1m64 commits scanned.\u001b[0m\n\u001b[90m8:16AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mscanned ~1245708 bytes (1.25 MB) in 136ms\u001b[0m\n\u001b[90m8:16AM\u001b[0m \u001b[32mINF\u001b[0m \u001b[1mno leaks found\u001b[0m\ngitleaks exit=0"
+    },
+    "license_compliance": {
+      "source": ".sessi-work/round_7/tools/license_compliance.txt",
+      "kind": "file",
+      "sha256": "5fc8d9698370d804d52b9598de9a2cb2df9376680efcb12275f66c7e20c05c54",
+      "bytes": 53423,
+      "head": "/Users/johnny/Library/Python/3.9/lib/python/site-packages/extractcode/libarchive2.py:107: UserWarning: Using \"libarchive\" library found in a system location. Install instead a extractcode-libarchive plugin for best support.\n  warnings.warn(\n/Users/johnny/Library/Python/3.9/lib/python/site-packages/typecode/magic2.py:195: UserWarning: System libmagic found in typical location is used. Install instead a typecode-libmagic plugin for best support.\n  warnings.warn(\n/Users/johnny/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nSetup plugins...\nCollect file inventory...\nScan files for: licenses with 31 process(es)...\n/Users/johnny/Library/Python/3.9/lib/python/site-packages/extractcode/libarchive2.py:107: UserWarning: Using \"libarchive\" library found in a system location. Install instead a extractcode-libarchive plugin for best support.\n  warnings.warn(\n/Users/johnny/Library/Python/3.9/lib/python/site-packages/typecode/magic2.py:195: UserWarning: System libmagic found in typical location is used. Install instead a typecode-libmagic plugin for best support.\n  warnings.warn(\n/Users/johnny/Library/Python/3.9/lib/python/site-packages/extractcode/libarchive2.py:107: UserWarning: Using \"libarchive\" library found in a system location. Install instead a extractcode-libarchive plugin for best support.\n  warnings.warn(\n/Users/johnny/Library/Python/3.9/lib/python/site-packages/extractcode/libarchive2.py:107: UserWarning: Using \"libarchive\" library found in a system location. Install instead a extractcode-libarchive plugin for best support.\n  warnings.warn(\n/Users/johnny/Library/Python/3.9/lib/python/site-packages/typecode/magic2.py:195: UserWarning: System libmagic found in typical location is used. Install instead a typecode-libmagic plugin for best support.\n  warnings.warn(\n/Users/johnny/Library/Python/3.9/lib/python/site"
+    },
+    "mutation_testing": {
+      "source": ".sessi-work/round_7/tools/mutation_testing.txt",
+      "kind": "file",
+      "sha256": "2ecfe64a4a59fc8b3bed41a12586dbcf1386a89a773cefe8fd28105d213c165d",
+      "bytes": 290,
+      "head": "  [mutation] resuming from 176128 bytes of prior results\n{\"success\": true, \"score\": 79.8, \"message\": \"killed=305 survived=77 score=79.8 [scope: 03-development/src/taskq_plus/service, 03-development/src/taskq_plus/storage]\", \"cache_path\": \"/Users/johnny/projects/taskq-renew/.mutmut-cache\"}"
+    },
+    "integration_coverage": {
+      "source": ".sessi-work/round_7/tools/integration_coverage.txt",
+      "kind": "file",
+      "sha256": "6da9b287d8875262ebc841b7993361e5f0a4ddf15eea7688f67472023a49fd4b",
+      "bytes": 2735,
+      "head": ".......................................s.........                        [100%]\n================================ tests coverage ================================\n______________ coverage: platform darwin, python 3.11.15-final-0 _______________\n\nName                                                      Stmts   Miss  Cover   Missing\n---------------------------------------------------------------------------------------\n03-development/src/taskq_plus/__init__.py                     3      0   100%\n03-development/src/taskq_plus/cli/__init__.py                 3      0   100%\n03-development/src/taskq_plus/cli/commands.py               345     62    82%   182-190, 210-211, 216, 224-227, 329-331, 362-364, 369-372, 431-432, 450-457, 574, 585, 598, 606-622, 626, 642-643, 655-656, 722-723, 777-779, 895-898, 934-936, 942-945, 1024-1028\n03-development/src/taskq_plus/cli/main.py                    63      3    95%   166, 192, 194\n03-development/src/taskq_plus/config.py                       9      0   100%\n03-development/src/taskq_plus/models/__init__.py              3      0   100%\n03-development/src/taskq_plus/models/errors.py                2      0   100%\n03-development/src/taskq_plus/models/task.py                 47      3    94%   75, 78, 84\n03-development/src/taskq_plus/observability/__init__.py       1      0   100%\n03-development/src/taskq_plus/observability/audit.py         59     15    75%   79, 140, 182-188, 199-204\n03-development/src/taskq_plus/observability/export.py        51      7    86%   53, 77, 102, 142-143, 149, 167\n03-development/src/taskq_plus/service/__init__.py             1      0   100%\n03-development/src/taskq_plus/service/breaker.py             32      4    88%   114-117\n03-development/src/taskq_plus/service/cache.py               44      3    93%   39, 42-43"
+    },
+    "test_assertion_quality": {
+      "source": ".sessi-work/round_7/tools/test_assertion_quality.txt",
+      "kind": "file",
+      "sha256": "71b685edf32a1f6b6df109b68c89a146e5d5614c2525dbdde1f8c5bab03d6821",
+      "bytes": 986,
+      "head": "{\"total\": 326, \"asserted\": 316, \"zero_assert\": [\"03-development/tests/test_nfr_static_anchors.py::test_nfr09_full_suite_has_zero_skipped_tests\", \"03-development/tests/test_nfr_static_anchors.py::test_nfr09_every_test_has_an_assertion\", \"03-development/tests/test_nfr_static_anchors.py::test_nfr09_pytest_skip_calls_are_absent\", \"03-development/tests/test_nfr_static_anchors.py::test_nfr09_skip_markers_are_absent\", \"03-development/tests/test_nfr_static_anchors.py::test_nfr09_skipif_markers_are_absent\", \"03-development/tests/test_nfr_static_anchors.py::test_nfr09_xfail_markers_are_absent\", \"03-development/tests/test_nfr_static_anchors.py::test_nfr09_harness_does_not_exclude_tests\", \"03-development/tests/test_nfr_static_anchors.py::test_nfr09_verified_rows_have_passing_test_evidence\", \"03-development/tests/test_fr08.py::test_fr08_exports_agree_and_escape_csv_fields\", \"03-development/tests/integration/test_cli_end_to_end.py::test_storage_task_store_corrupt_load_returns_empty\"]}"
+    },
+    "execute_verification_target": {
+      "source": ".sessi-work/round_7/tools/execute_verification_target.txt",
+      "kind": "file",
+      "sha256": "d92fe87f528f5a6084f96708d1ee12371110619d99fd8b4fe4531d25ab015b7d",
+      "bytes": 16572,
+      "head": "cd /Users/johnny/projects/taskq-renew && \\\n\t  /Users/johnny/projects/taskq-renew/.venv/bin/python -m ruff check . --exit-zero\nAll checks passed!\ncd /Users/johnny/projects/taskq-renew && \\\n\t  /Users/johnny/projects/taskq-renew/.venv/bin/python -m pyright 03-development/src/ --outputjson\n{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785889101408\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 22,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.63\n    }\n}\n\ncd /Users/johnny/projects/taskq-renew && \\\n\t  /Users/johnny/projects/taskq-renew/.venv/bin/python -m coverage run -m pytest --cov=03-development/src -q"
+    }
+  },
+  "crg_review_context": {
+    "status": "ok",
+    "summary": "Review context for 10 changed file(s):\n  - Risk: low\n  - 0 impacted nodes in 0 files",
+    "risk": "low",
+    "changed_file_count": 10,
+    "impacted_file_count": 0,
+    "key_entities": [],
+    "test_gaps": 0,
+    "next_tool_suggestions": [
+      "detect_changes",
+      "get_affected_flows",
+      "get_impact_radius"
+    ],
+    "context_savings": {
+      "estimated": true,
+      "saved_tokens": 25421,
+      "saved_percent": 100
+    }
+  },
+  "crg_impact_radius": {
+    "status": "ok",
+    "summary": "Blast radius for 10 changed file(s):\n  - 0 nodes directly changed\n  - 0 nodes impacted (within 2 hops)\n  - 0 additional files affected",
+    "risk": "low",
+    "impacted_file_count": 0,
+    "key_entities": [],
+    "truncated": false,
+    "context_savings": {
+      "estimated": true,
+      "saved_tokens": 25434,
+      "saved_percent": 100
+    }
+  },
+  "composite_score": 95.3171,
+  "verdict": "PASS",
+  "passed": true
+}

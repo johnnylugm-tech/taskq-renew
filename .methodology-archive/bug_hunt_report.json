@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-08-05T01:30:00+00:00",
+  "git_sha": "2b1ab4c936871e2299a76dddaa22133e2efecbbf",
+  "targets_manifest": ".methodology/bug_hunt_targets.json",
+  "lenses": ["correctness", "concurrency", "resilience", "general"],
+  "raw_count": 2,
+  "confirmed_count": 2,
+  "refuted_count": 0,
+  "findings": [
+    {
+      "id": "tasks_cache_audit_redact#1",
+      "module": "taskq_plus.cli.commands + taskq_plus.service.cache",
+      "lens": "resilience",
+      "severity": "high",
+      "title": "stdout_tail / stderr_tail not redacted before write to tasks.json and cache.json (NFR-04)",
+      "description": "SPEC §4 NFR-04 (line 211-214) requires stdout_tail, stderr_tail, and audit-log `detail` to be redacted BEFORE write to disk using the regex `(sk-[A-Za-z0-9_-]{8,}|token=\\S+|Bearer\\s+\\S+)`. The production paths `commands._persist_result` and `commands.run` -> `cache_record` pass these fields through unchanged.",
+      "file": "03-development/src/taskq_plus/cli/commands.py",
+      "line_start": 230,
+      "line_end": 252,
+      "code_snippet": "result_fields = {\n    ...\n    \"stdout_tail\": result.stdout_tail,\n    \"stderr_tail\": result.stderr_tail,\n    ...\n}",
+      "reasoning": "Confirmed via grep that audit._redact is only invoked from audit.append_event (audit.py:161) and never from the commands.py write paths. The NFR-04 unit test (test_nfr04_secret_is_redacted_from_task_results) only exercises the _redact function in isolation on a hand-built dict; it does NOT drive the production write path. A task that echoes `sk-ABCD...` writes the secret verbatim to tasks.json AND cache.json.",
+      "suggested_fix": "Wrap stdout_tail and stderr_tail with audit._redact in _persist_result, the cache-hit branch (line 480), and cache_record (line 513).",
+      "confidence": "high",
+      "confirmed": true,
+      "verify_evidence": "grep -n _redact src/.../commands.py src/.../task_store.py src/.../cache.py returns no matches; only audit.py uses _redact. SPEC §4 NFR-04 line 211-214 names exactly stdout_tail/stderr_tail/audit detail.",
+      "resolution": {
+        "status": "resolved",
+        "fix_commit": "affd223d52df574610714e8dea10e2c4c53f8352",
+        "repro_test": "03-development/tests/test_hunt_nfr04_write_through.py"
+      }
+    },
+    {
+      "id": "plugins_audit_redact#1",
+      "module": "taskq_plus.service.plugins",
+      "lens": "resilience",
+      "severity": "high",
+      "title": "plugins.append_audit_event bypasses audit._redact, leaking secrets into audit.jsonl (NFR-04)",
+      "description": "`service/plugins.py:99-125 append_audit_event` serialises the event payload directly with json.dumps and writes it to audit.jsonl without applying audit._redact. A plugin whose exception message contains `sk-...` / `token=...` / `Bearer ...` lands on disk unredacted, violating NFR-04.",
+      "file": "03-development/src/taskq_plus/service/plugins.py",
+      "line_start": 99,
+      "line_end": 125,
+      "code_snippet": "payload = json.dumps(event, default=str) + \"\\n\"\nwith _AUDIT_LOCK:\n    fd = os.open(...)",
+      "reasoning": "Verified: the only call to audit._redact lives in audit.append_event:161. plugins.append_audit_event has its own json.dumps + os.open path that skips the redaction. A `detail.error` string from a plugin exception that contains `token=...` reaches the file verbatim.",
+      "suggested_fix": "Apply audit._redact to every value of the event dict before json.dumps. Import lazily so service does not depend on observability at module load time (SAB rule).",
+      "confidence": "high",
+      "confirmed": true,
+      "verify_evidence": "plugins.py:114 json.dumps(event, default=str) — no _redact call before this line; audit.py:130 _REDACTION_RE.sub — only invoked from audit._redact at audit.py:161.",
+      "resolution": {
+        "status": "resolved",
+        "fix_commit": "affd223d52df574610714e8dea10e2c4c53f8352",
+        "repro_test": "03-development/tests/test_hunt_nfr04_write_through.py"
+      }
+    }
+  ]
+}

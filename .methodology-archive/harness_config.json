@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "features": {
+    "mutation_testing": true
+  },
+  "values": {
+    "timeouts": {
+      "mutation": 10800
+    }
+  },
+  "crg_cohesion_healthy": 0.25,
+  "crg_excludes": []
+}

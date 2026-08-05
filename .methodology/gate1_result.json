@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 7,
-  "fr_id": "FR-02",
+  "fr_id": "FR-04",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,25 +9,27 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed!"
+      "tool_evidence": "All checks passed!\n"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\":\"1.1.409\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.665}}"
+      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785916715605\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.665}}\n"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 322,
+      "tests_passed": 21,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================= 322 passed in 13.24s =============================\nCoverage (FR-02): cli/commands.py=100% (360/360), service/executor.py=100% (68/68), Combined=100% (428/428)\nAll 5 required tests present: test_fr02_run_done_reproduces_result, test_fr02_run_timeout_returns_exit_4, test_fr02_source_contains_no_shell_true, test_fr02_run_all_concurrent_write_is_atomic, test_fr02_nonzero_exit_marks_task_failed"
+      "tool_evidence": "______________ coverage: platform darwin, python 3.11.15-final-0 _______________\nName                                                      Stmts   Miss  Cover   Missing\n03-development/src/taskq_plus/service/cache.py               44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py         29      0   100%\nTOTAL                                                      1122    605    46%\n============================== 21 passed in 2.64s ==============================",
+      "evidence_file": ".sessi-work/round_1/tools/test_coverage.txt"
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT)"
+      "tool_evidence": "Analyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken.\n",
+      "evidence_file": ".sessi-work/round_1/tools/architecture_constraints.txt"
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -68,23 +70,23 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "b4a2c6550e0f2d6fb629d03ec5247d3bde01ac9a2eb9a5d2c97a696763b58d6f",
-      "bytes": 147,
-      "head": "{\"version\":\"1.1.409\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.665}}"
+      "sha256": "cf2e043660314de7c6c579c352e785a5342aca56a96954d6ef2ec3a2f2b2fcb5",
+      "bytes": 186,
+      "head": "{\"version\": \"1.1.409\", \"time\": \"1785916715605\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.665}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "7c83c4fc3cda51467ad96209e3e7f4e46cad07d3745c000626fd66ac6fbf5585",
-      "bytes": 422,
-      "head": "============================= 322 passed in 13.24s =============================\nCoverage (FR-02): cli/commands.py=100% (360/360), service/executor.py=100% (68/68), Combined=100% (428/428)\nAll 5 required tests present: test_fr02_run_done_reproduces_result, test_fr02_run_timeout_returns_exit_4, test_fr02_source_contains_no_shell_true, test_fr02_run_all_concurrent_write_is_atomic, test_fr02_nonzero_exit_marks_task_failed"
+      "sha256": "61f5a5aa586b9353f6de330d8e59538ad4738dba56f453e145890f500cc8bdec",
+      "bytes": 483,
+      "head": "______________ coverage: platform darwin, python 3.11.15-final-0 _______________\nName                                                      Stmts   Miss  Cover   Missing\n03-development/src/taskq_plus/service/cache.py               44      0   100%\n03-development/src/taskq_plus/storage/cache_store.py         29      0   100%\nTOTAL                                                      1122    605    46%\n============================== 21 passed in 2.64s =============================="
     },
     "architecture_constraints": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "db9e37dac1b615073c6486911dbcd85bbe4f6c723a08d057eaf95f7d8dcd62e9",
-      "bytes": 149,
-      "head": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT)"
+      "sha256": "4d7589298702bc8cb5cde1f2ff511ebe4d8945f5cf2a32ea27d1c5c920a19780",
+      "bytes": 218,
+      "head": "Analyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken."
     }
   },
   "composite_score": 100.0,

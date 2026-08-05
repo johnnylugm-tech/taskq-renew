@@ -45,9 +45,9 @@
 | NFR ID | Test Coverage | Status |
 |--------|--------------|--------|
 | NFR-01 | test_nfr_traceability.py | VERIFIED |
-| NFR-02 | test_fr01.py, test_fr02.py, test_fr05.py, test_nfr02.py, test_nfr_traceability.py | VERIFIED |
-| NFR-03 | test_fr01.py, test_fr02.py, test_fr03.py, test_fr04.py | VERIFIED |
-| NFR-04 | test_fr01.py, test_fr05.py, test_fr07.py, test_fr08.py | VERIFIED |
+| NFR-02 | test_fr01.py, test_fr02.py, test_fr05.py, test_fr07.py, test_nfr02.py, test_nfr_traceability.py | VERIFIED |
+| NFR-03 | test_atomic_exceptions.py, test_fr01.py, test_fr02.py, test_fr03.py, test_fr04.py, test_fr07.py | VERIFIED |
+| NFR-04 | test_fr01.py, test_fr05.py, test_fr07.py, test_fr08.py, test_hunt_nfr04_write_through.py | VERIFIED |
 | NFR-05 | test_fr01.py, test_nfr_static_anchors.py | VERIFIED |
 | NFR-06 | test_nfr_static_anchors.py | VERIFIED |
 | NFR-07 | test_nfr_static_anchors.py | VERIFIED |

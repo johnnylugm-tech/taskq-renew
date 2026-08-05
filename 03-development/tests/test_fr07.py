@@ -524,6 +524,17 @@ def _plugins_module():
     return importlib.import_module("taskq_plus.service.plugins")
 
 
+def _ensure_test_plugins_importable() -> None:
+    """Put the fixture plugin package on `sys.path`, at most once.
+
+    Guarded against re-insertion so repeated calls across the cases
+    below cannot grow `sys.path` without bound.
+    """
+    path = _test_plugins_path()
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+
 def _fake_module(**hooks):
     """Build a stand-in plugin module exposing exactly `hooks`.
 
@@ -639,7 +650,7 @@ def test_fr07_inprocess_load_resolves_every_spec_without_raising():
     and an unimportable name; the loader must return a record for each
     so one bad spec cannot hide the rest from `plugins list`.
     """
-    sys.path.insert(0, _test_plugins_path())
+    _ensure_test_plugins_importable()
     plugins_mod = _plugins_module()
 
     registry = plugins_mod.PluginRegistry(
@@ -660,7 +671,7 @@ def test_fr07_inprocess_load_resolves_every_spec_without_raising():
 
 def test_fr07_inprocess_registry_defaults_to_taskq_plugins_env(monkeypatch):
     """With no explicit override the registry reads `TASKQ_PLUGINS`."""
-    sys.path.insert(0, _test_plugins_path())
+    _ensure_test_plugins_importable()
     plugins_mod = _plugins_module()
     monkeypatch.setenv("TASKQ_PLUGINS", "taskq_test_plugins.noop")
 
@@ -674,7 +685,7 @@ def test_fr07_inprocess_registry_defaults_to_taskq_plugins_env(monkeypatch):
 
 def test_fr07_inprocess_resolve_spec_loads_module_and_lists_hooks():
     """A well-formed spec is imported and its recognised hooks recorded."""
-    sys.path.insert(0, _test_plugins_path())
+    _ensure_test_plugins_importable()
     plugins_mod = _plugins_module()
 
     record = plugins_mod.PluginRegistry._resolve_spec(

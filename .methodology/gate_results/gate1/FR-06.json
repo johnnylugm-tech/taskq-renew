@@ -1,7 +1,7 @@
 {
   "gate": 1,
-  "phase": 7,
-  "fr_id": "FR-01",
+  "phase": 8,
+  "fr_id": "FR-07",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -14,20 +14,18 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\":\"1.1.409\",\"time\":\"1785916541646\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.642}}"
+      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785919219388\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.673\n    }\n}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 312,
+      "tests_passed": 322,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "============================= 312 passed in 12.99s =============================\nCoverage: cli/commands.py=100.00%, models/task.py=100.00%, storage/task_store.py=100.00% (526/526 statements)"
+      "tool_evidence": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 322 items\n\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n\n============================= 322 passed in 11.10s ============================="
     },
     "architecture_constraints": {
-      "score": 100.0,
-      "threshold": 100,
-      "tool_evidence": "PYTHONPATH=03-development/src lint-imports exit=0 | Analyzed 23 files, 30 dependencies | Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT)"
+      "score": 100.0
     }
   },
   "enforcer_sha": "a8202253088684cf1d452e423169ff857f0842a6",
@@ -68,23 +66,16 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "af676521416f89fe109e3c76e312c58f3bc212c68823a4d7bafb1c86dfac643d",
-      "bytes": 170,
-      "head": "{\"version\":\"1.1.409\",\"time\":\"1785916541646\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.642}}"
+      "sha256": "78cbda48fb3cc2443cd22f6ec5e66d451d75f06f40d22fc030f85bdb9313fc2d",
+      "bytes": 250,
+      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785919219388\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.673\n    }\n}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "7d345cfd3b6f50ef68fadcc112bb42ea38e41ab4e2172e76f667830a16c33ae2",
-      "bytes": 190,
-      "head": "============================= 312 passed in 12.99s =============================\nCoverage: cli/commands.py=100.00%, models/task.py=100.00%, storage/task_store.py=100.00% (526/526 statements)"
-    },
-    "architecture_constraints": {
-      "source": "tool_evidence (inline)",
-      "kind": "inline",
-      "sha256": "c265cb52d59a5aaf657cbef1e44ebe63651e99230280df9baba70f133e834e21",
-      "bytes": 238,
-      "head": "PYTHONPATH=03-development/src lint-imports exit=0 | Analyzed 23 files, 30 dependencies | Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT)"
+      "sha256": "97a324f59f4e46f8cbb4179ffd6ab624364181e115c4266e8fc1da0a19e2baff",
+      "bytes": 1359,
+      "head": "============================= test session starts ==============================\nplatform darwin -- Python 3.11.15, pytest-8.4.2, pluggy-1.6.0\nbenchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 322 items\n\n03-development/tests/test_fr07.py ...................................... [ 11%]\n..........                                                               [ 14%]\n03-development/tests/test_fr01.py ...................................... [ 26%]\n.......................................                                  [ 38%]\n03-development/tests/test_fr02.py ...................................... [ 50%]\n..............................                                           [ 59%]\n03-development/tests/test_fr05.py ...................................... [ 71%]\n............                                                             [ 75%]\n03-development/tests/test_fr08.py ...................................... [ 87%]\n.........................................                                [100%]\n\n============================= 322 passed in 11.10s ============================="
     }
   },
   "composite_score": 100.0,

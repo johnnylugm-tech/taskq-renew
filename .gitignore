@@ -19,3 +19,6 @@ __pycache__/
 htmlcov/
 .mutmut-cache/
 .code-review-graph/
+
+# harness-methodology runtime (auto-added by git_strategy)
+.claude/worktrees/

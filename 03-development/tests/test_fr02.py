@@ -2001,3 +2001,154 @@ def test_fr02_inprocess_plugins_rejects_path_form(taskq_home):
     assert rc == 6, f"path-form plugin must exit 6; got {rc}"
     assert "rejected module" in err.getvalue()
     assert "../evil.py" in err.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Coverage gap closure — lines reported as Miss in the FR-02 coverage report
+# ---------------------------------------------------------------------------
+
+
+# NFR-09
+def test_fr02_executor_run_with_retry_breaks_when_first_command_succeeds():
+    """`run_with_retry` with a 2-element list whose first command succeeds
+    breaks out of the retry loop (line 257) without sleeping or invoking
+    the second command. The `result.status` is `"done"`, which is NOT in
+    `_RETRYABLE_STATUSES`, so the `or idx - 1 >= retry_limit` clause is
+    never evaluated — only the first predicate triggers the break.
+    Covers line 257.
+    """
+    from taskq_plus.models.task import Task
+    from taskq_plus.service import executor
+
+    sleeps: list = []
+
+    def _record_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    cmds = [Task(command="echo hi"), Task(command="false")]
+    result = executor.run_with_retry(
+        cmds, timeout=10.0, sleep_fn=_record_sleep,
+        retry_limit=2, backoff_base=1.0,
+    )
+    assert result.status == "done", (
+        f"first-command success must short-circuit; got {result.status!r}"
+    )
+    # The break fires before any sleep is recorded and before the
+    # second command runs.
+    assert sleeps == [], (
+        f"no backoff sleeps should fire on a successful first command; "
+        f"got {sleeps!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_run_all_skips_already_done_prereq_layer(taskq_home):
+    """`commands.run_all` builds depth layers across all tasks; a depth-0
+    task whose status is already `"done"` falls into the
+    `if task.status != "pending": continue` branch (line 618). The
+    dependent at depth 1 is still `pending`, so the outer `any(...)`
+    short-circuit does not fire and the loop reaches line 618.
+    Covers line 618.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.models.task import Task
+    from taskq_plus.storage.task_store import (
+        make_disk_store,
+        reset_store_cache,
+    )
+
+    reset_store_cache()
+    store = make_disk_store()
+    parent = store.add(Task(command="echo done-parent", status="done"))
+    child = store.add(
+        Task(command="echo done-child", depends_on=[parent.id])
+    )
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.run(["--all"], use_disk=True)
+    assert rc == 0, (
+        f"`run --all` must exit 0 when a prereq is already done; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+
+    # The child runs because its prereq is `"done"`; the parent is
+    # skipped by the `continue` on line 618 (its persisted status is
+    # `"done"`, not `"pending"`).
+    reset_store_cache()
+    from taskq_plus.storage.task_store import get_store
+    final = {t.id: t for t in get_store(use_disk=True).load()}
+    assert final[parent.id].status == "done"
+    assert final[child.id].status == "done", (
+        f"child must complete since prereq was already done; "
+        f"got {final[child.id].status!r}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_export_returns_2_when_parser_raises_nonint_systemexit(
+    taskq_home, monkeypatch,
+):
+    """`commands.export` catches `SystemExit` from `parser.parse_args`
+    and returns `2` whether the code is an `int` or not. argparse
+    itself never raises `SystemExit("...")` from `.parse_args()` (it
+    uses `parser.error` → `parser.exit(2, msg)`), so we monkey-patch
+    the parser's `parse_args` to simulate the non-int code path and
+    confirm the defensive `return 2` branch (line 913) executes.
+    Covers line 913.
+    """
+    import argparse as _argparse
+    from taskq_plus.cli import commands
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    real_parse = _argparse.ArgumentParser.parse_args
+
+    def _raise_nonint(self, args=None, namespace=None):  # type: ignore[override]
+        # Mirror what would happen if a future argparse version (or a
+        # test-only code path) propagated a non-integer exit code.
+        raise SystemExit("non-int exit code")
+
+    monkeypatch.setattr(
+        _argparse.ArgumentParser, "parse_args", _raise_nonint,
+    )
+
+    try:
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = commands.export(["--format", "json"], use_disk=True)
+    finally:
+        monkeypatch.setattr(
+            _argparse.ArgumentParser, "parse_args", real_parse,
+        )
+    assert rc == 2, (
+        f"non-int SystemExit code must collapse to exit 2; got {rc}"
+    )
+
+
+# NFR-09
+def test_fr02_inprocess_plugins_with_no_args_uses_env_allowlist(
+    taskq_home, monkeypatch,
+):
+    """`commands.plugins([])` (no positional specs) falls back to
+    `os.environ["TASKQ_PLUGINS"]` via `parse_plugin_specs` (line 1054).
+    We set the env to a single well-formed module name and assert the
+    output names it.
+    Covers line 1054.
+    """
+    from taskq_plus.cli import commands
+    from taskq_plus.storage.task_store import reset_store_cache
+
+    reset_store_cache()
+    monkeypatch.setenv("TASKQ_PLUGINS", "os")
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = commands.plugins([])
+    assert rc == 0, (
+        f"plugins with env-derived allowlist must exit 0; got {rc}; "
+        f"stderr={err.getvalue()!r}"
+    )
+    assert "os" in out.getvalue(), (
+        f"env-derived plugin name must appear in output; got "
+        f"{out.getvalue()!r}"
+    )

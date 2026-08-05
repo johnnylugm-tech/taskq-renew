@@ -1,7 +1,7 @@
 {
   "gate": 1,
   "phase": 5,
-  "fr_id": "FR-04",
+  "fr_id": "FR-05",
   "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
@@ -9,27 +9,26 @@
     "linting": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "All checks passed! (ruff exit 0, 0 violations on 03-development/src/ with --extend-ignore RUF001,RUF002,RUF003)"
+      "tool_evidence": "All checks passed!\n"
     },
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785898902394\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
+      "tool_evidence": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785899144487\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.701\n    }\n}\n\n"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 21,
+      "tests_passed": 50,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "21 passed in 2.62s. coverage json: cache.py 100% (44/44 lines, 100% statements), cache_store.py 100% (29/29 lines, 100% statements). totals: covered_lines=73, num_statements=73, percent_covered=100.0. All 3/3 spec-required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution. 0 failed, 0 skipped."
+      "tool_evidence": "unds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 50 items\n\n03-development/tests/test_fr05.py ...................................... [ 76%]\n............                                                             [100%]\n\n============================== 50 passed in 4.29s =============================="
     },
     "architecture_constraints": {
       "score": 100.0,
       "threshold": 100,
-      "framework_override": true,
-      "tool_output": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "tool_evidence": "Contracts: 4 kept, 0 broken. (storage-not-pulling-cli KEPT, models-not-pulling-storage KEPT, models-not-pulling-cli KEPT, config-is-independent KEPT). lint-imports exit=0 with PYTHONPATH=03-development/src."
+      "tool_evidence": "Analyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken.\n",
+      "evidence_file": ".sessi-work/round_1/tools/architecture_constraints.txt"
     }
   },
   "enforcer_sha": "b3865cad231467f65baa7a6833a41875b9f5897c",
@@ -63,30 +62,30 @@
     "linting": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "daab65e2b6d157c378b25c3aace21a9dba9d9b7497908893fe28fcf30f04ef96",
-      "bytes": 111,
-      "head": "All checks passed! (ruff exit 0, 0 violations on 03-development/src/ with --extend-ignore RUF001,RUF002,RUF003)"
+      "sha256": "f0d0b1081d9d3ebb26c4c93543053ecdc0a58998f22c071dc4ddb26021b57645",
+      "bytes": 18,
+      "head": "All checks passed!"
     },
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "a51f2f594a54eaa3e70d4efe7d674619e9b4a9ca704050f30c2de92eb4bfe01b",
-      "bytes": 186,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785898902394\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.694}}"
+      "sha256": "842d13364f637341739bbf9044a0a8cfa7992864e7d1458b7f53b90555041823",
+      "bytes": 250,
+      "head": "{\n    \"version\": \"1.1.409\",\n    \"time\": \"1785899144487\",\n    \"generalDiagnostics\": [],\n    \"summary\": {\n        \"filesAnalyzed\": 23,\n        \"errorCount\": 0,\n        \"warningCount\": 0,\n        \"informationCount\": 0,\n        \"timeInSec\": 0.701\n    }\n}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "f3e25b905a1e6e26cc0e8457ee0a860c10408f576db5150e429a8f7edfba3f94",
-      "bytes": 410,
-      "head": "21 passed in 2.62s. coverage json: cache.py 100% (44/44 lines, 100% statements), cache_store.py 100% (29/29 lines, 100% statements). totals: covered_lines=73, num_statements=73, percent_covered=100.0. All 3/3 spec-required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution. 0 failed, 0 skipped."
+      "sha256": "bec60133d909735889c733cf6b823d7ac64000fb137d3667b176ca20b65bb7a6",
+      "bytes": 500,
+      "head": "unds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)\nrootdir: /Users/johnny/projects/taskq-renew\nconfigfile: pytest.ini\nplugins: benchmark-5.2.3, hypothesis-6.165.1, cov-7.1.0, anyio-4.14.2\ncollected 50 items\n\n03-development/tests/test_fr05.py ...................................... [ 76%]\n............                                                             [100%]\n\n============================== 50 passed in 4.29s =============================="
     },
     "architecture_constraints": {
-      "source": ".sessi-work/round_1/tools/architecture_constraints.txt",
-      "kind": "file",
-      "sha256": "7ac4bde5fda0f1939d01dac7db6bf5be0e71052c11bafe2b0a3267d34482aed8",
-      "bytes": 924,
-      "head": "\n╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐\n╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │\n ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗\n ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝\n╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║\n╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝\n  └──▶║║                    ▲ \n      ╚╝────────────────────┘\n\n\n---------\nContracts\n---------\n\nAnalyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT"
+      "source": "tool_evidence (inline)",
+      "kind": "inline",
+      "sha256": "4d7589298702bc8cb5cde1f2ff511ebe4d8945f5cf2a32ea27d1c5c920a19780",
+      "bytes": 218,
+      "head": "Analyzed 23 files, 30 dependencies.\n-----------------------------------\n\nstorage-not-pulling-cli KEPT\nmodels-not-pulling-storage KEPT\nmodels-not-pulling-cli KEPT\nconfig-is-independent KEPT\n\nContracts: 4 kept, 0 broken."
     }
   },
   "composite_score": 100.0,

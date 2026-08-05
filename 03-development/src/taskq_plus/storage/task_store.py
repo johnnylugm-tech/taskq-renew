@@ -12,9 +12,12 @@ Two backends live behind one facade:
   the subprocess's on-disk state.
 
 A shared `threading.Lock` (one per backend instance) guards every
-multi-step read-modify-write so two parallel `run --all` invocations
-cannot interleave a `load()` + `update()` and write a torn record
-(SPEC §3 FR-02 "存儲寫入必須執行緒安全" + §4 NFR-03 atomicity).
+multi-step read-modify-write against this process's own `--all` worker
+threads; on disk an `flock` sidecar (`tasks.json.lock`) extends the
+same guard across processes, so two parallel `run --all` invocations
+cannot interleave a `load()` + `update()` and drop one another's
+status update (SPEC §3 FR-02 "存儲寫入必須執行緒安全" + §4 NFR-03
+atomicity).
 
 Atomicity on disk is implemented as `tmp + os.replace` (SPEC §6
 line 335) — a mid-write kill leaves the previous valid JSON intact.
@@ -30,12 +33,22 @@ Citations:
 """
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import os
 import tempfile
 import threading
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Protocol, runtime_checkable
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Protocol,
+    runtime_checkable,
+)
 
 from taskq_plus.config import tasks_path
 from taskq_plus.models.task import Task
@@ -137,6 +150,28 @@ class DiskBackend:
             payload = json.load(fh)
         return [Task.model_validate(item) for item in payload]
 
+    @contextlib.contextmanager
+    def _exclusive(self) -> Iterator[None]:
+        """[FR-02] Serialise read-modify-write across *processes*.
+
+        `self._lock` only serialises threads inside one interpreter, so
+        two parallel `run --all` invocations each take their own and
+        neither waits: both `load()` the same snapshot and the later
+        `_write_atomic` discards the other's status update. `os.replace`
+        keeps each write atomic but cannot order two of them. An
+        `flock` on a sidecar file is the one lock every process sharing
+        this `$TASKQ_HOME` can contend for (SPEC §3 FR-02 line 122 +
+        §4 NFR-03).
+        """
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self._path.with_name(self._path.name + ".lock")
+        with lock_path.open("a+", encoding="utf-8") as fh:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
     def add(self, task: Task) -> Task:
         """[FR-01] Persist `task` and write `tasks.json` atomically.
 
@@ -144,7 +179,7 @@ class DiskBackend:
         the same pattern SPEC §6 line 335 spells out for the storage
         layer (`tmp + os.replace`, NFR-03).
         """
-        with self._lock:
+        with self._lock, self._exclusive():
             tasks = self.load()
             tasks.append(task)
             self._write_atomic([t.model_dump(mode="json") for t in tasks])
@@ -165,11 +200,13 @@ class DiskBackend:
     ) -> Task:
         """[FR-02] Mutate the task with `task_id` and persist atomically.
 
-        Holds the lock across read-modify-write so two parallel
-        `run --all` subprocesses cannot interleave a load and write
-        (SPEC §3 FR-02 thread-safety invariant + §4 NFR-03 atomicity).
+        Holds both locks across read-modify-write: `self._lock` orders
+        this process's `--all` worker threads, `self._exclusive()`
+        orders the parallel `run --all` processes that share the same
+        `$TASKQ_HOME` (SPEC §3 FR-02 thread-safety invariant + §4
+        NFR-03 atomicity).
         """
-        with self._lock:
+        with self._lock, self._exclusive():
             tasks = self.load()
             for idx, existing in enumerate(tasks):
                 if existing.id == task_id:

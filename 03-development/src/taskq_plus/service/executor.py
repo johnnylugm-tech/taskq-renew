@@ -238,22 +238,24 @@ def run_with_retry(
 
     # The first attempt always runs and never waits — the backoff
     # belongs strictly *between* attempts. Every subsequent entry in
-    # `commands` is a retry, so the retry policy lives entirely in the
-    # loop condition: keep retrying while (a) a follow-up command
-    # exists, (b) the last outcome was retryable, and (c) the retry
-    # budget is not spent (`idx - 1` retries have already happened
-    # before the attempt at index `idx`). Expressing all three as loop
-    # guards means the loop can only exit one way — through the single
-    # `return` below — so there is no unreachable fall-through branch.
+    # `commands` is a retry, so the retry policy is (a) a follow-up
+    # command exists, (b) the last outcome was retryable, and (c) the
+    # retry budget is not spent (`idx - 1` retries have already
+    # happened before the attempt at index `idx`). Guard (a) is the
+    # `for` range itself: iterating the command sequence bounds the
+    # loop structurally, so termination never depends on arithmetic on
+    # a counter. A counter-driven `while` loop ends the run only if the
+    # increment is right; when it is not, a persistently failing
+    # command is retried forever, sleeping between attempts. Guards (b)
+    # and (c) stop the loop early, before the sequence is exhausted.
     result = run_task(commands[0], timeout=timeout)
-    idx = 1
-    while (
-        idx < len(commands)
-        and result.status in _RETRYABLE_STATUSES
-        and idx - 1 < retry_limit
-    ):
+    for idx in range(1, len(commands)):
+        if (
+            result.status not in _RETRYABLE_STATUSES
+            or idx - 1 >= retry_limit
+        ):
+            break
         # n-th retry (1-indexed) waits `base * 2**n` seconds.
         sleep_fn(backoff_base * (2 ** idx))
         result = run_task(commands[idx], timeout=timeout)
-        idx += 1
     return result

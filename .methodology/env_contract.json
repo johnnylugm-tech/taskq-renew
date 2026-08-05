@@ -1,5 +1,5 @@
 {
-  "classified_at": "2026-08-04T10:13:52Z",
+  "classified_at": "2026-08-04T12:10:00Z",
   "cli_tools": [
     "bandit",
     "click",
@@ -21,7 +21,7 @@
     "ruff",
     "scancode-toolkit"
   ],
-  "enforcer_sha": "4be31a55961c4daecbb8edd4f875e9e7b2724f7f-dirty",
+  "enforcer_sha": "21820fcb00e81c009a83b26b7777a44c04895784",
   "env_vars": {
     "dev_opt_in": [],
     "has_default": [

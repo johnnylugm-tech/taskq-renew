@@ -819,6 +819,63 @@ def test_fr03_executor_run_with_retry_timeout_triggers_retry(taskq_home, monkeyp
     )
 
 
+# NFR-09 / NFR-15
+def test_fr03_executor_run_with_retry_stops_with_commands_remaining(
+    taskq_home, monkeypatch
+):
+    """`run_with_retry` must stop as soon as an attempt succeeds or the
+    retry budget is spent, even when unused commands remain in the
+    sequence — the sequence is an upper bound on attempts, not a
+    schedule that must be run to the end.
+
+    Both early exits are exercised: a success at the second of three
+    commands (retryable-status guard) and a budget of one retry against
+    three failing commands (retry-budget guard).
+    """
+    from taskq_plus.models.task import Task
+    from taskq_plus.service.executor import run_with_retry
+
+    sleep_calls: list = []
+
+    def recording_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setenv("TASKQ_RETRY_LIMIT", "2")
+    monkeypatch.setenv("TASKQ_BACKOFF_BASE", "0.1")
+
+    result = run_with_retry(
+        [Task(command="false"), Task(command="echo hi"), Task(command="false")],
+        timeout=10.0,
+        sleep_fn=recording_sleep,
+    )
+
+    assert result.status == "done", (
+        f"a success must end the retry loop with the third command "
+        f"unused; got {result.status!r}"
+    )
+    assert len(sleep_calls) == 1, (
+        f"only the single retry that ran may sleep; got {sleep_calls!r}"
+    )
+
+    sleep_calls.clear()
+    monkeypatch.setenv("TASKQ_RETRY_LIMIT", "1")
+
+    result = run_with_retry(
+        [Task(command="false"), Task(command="false"), Task(command="false")],
+        timeout=10.0,
+        sleep_fn=recording_sleep,
+    )
+
+    assert result.status == "failed", (
+        f"an exhausted retry budget must return the last failure; "
+        f"got {result.status!r}"
+    )
+    assert len(sleep_calls) == 1, (
+        f"retry_limit=1 must permit exactly one retry even with three "
+        f"commands available; got {sleep_calls!r}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # `taskq_plus.cli.commands.run` — the in-process breaker-gate surface
 # ---------------------------------------------------------------------------

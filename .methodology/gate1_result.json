@@ -1,8 +1,8 @@
 {
   "gate": 1,
   "phase": 7,
-  "fr_id": "FR-04",
-  "overall_score": 94.56,
+  "fr_id": "FR-01",
+  "overall_score": 100.0,
   "quality_complete": true,
   "rounds_used": 1,
   "breakdown": {
@@ -14,15 +14,15 @@
     "type_safety": {
       "score": 100.0,
       "threshold": 100,
-      "tool_evidence": "{\"version\": \"1.1.409\", \"time\": \"1785916059485\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.642}} — 0 errors, 0 warnings across 23 files in 0.642s"
+      "tool_evidence": "{\"version\":\"1.1.409\",\"time\":\"1785916541646\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.642}}"
     },
     "test_coverage": {
       "score": 100.0,
       "threshold": 100,
-      "tests_passed": 21,
+      "tests_passed": 312,
       "tests_failed": 0,
       "tests_skipped": 0,
-      "tool_evidence": "21 passed in 2.58s | Spec coverage: 3/3 (100%) | Coverage (cache.py+cache_store.py): 84% | All 3 required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution"
+      "tool_evidence": "============================= 312 passed in 12.99s =============================\nCoverage: cli/commands.py=100.00%, models/task.py=100.00%, storage/task_store.py=100.00% (526/526 statements)"
     },
     "architecture_constraints": {
       "score": 100.0,
@@ -68,16 +68,16 @@
     "type_safety": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "03f253f423e7bbfc5f7fbdef9fe1cb2a5c6f9b2675f89f88cebb84919393dfe9",
-      "bytes": 237,
-      "head": "{\"version\": \"1.1.409\", \"time\": \"1785916059485\", \"generalDiagnostics\": [], \"summary\": {\"filesAnalyzed\": 23, \"errorCount\": 0, \"warningCount\": 0, \"informationCount\": 0, \"timeInSec\": 0.642}} — 0 errors, 0 warnings across 23 files in 0.642s"
+      "sha256": "af676521416f89fe109e3c76e312c58f3bc212c68823a4d7bafb1c86dfac643d",
+      "bytes": 170,
+      "head": "{\"version\":\"1.1.409\",\"time\":\"1785916541646\",\"generalDiagnostics\":[],\"summary\":{\"filesAnalyzed\":23,\"errorCount\":0,\"warningCount\":0,\"informationCount\":0,\"timeInSec\":0.642}}"
     },
     "test_coverage": {
       "source": "tool_evidence (inline)",
       "kind": "inline",
-      "sha256": "5c749215245892788af1f208695c0217a21688bbde3e1cf163b7351cb4a6fb43",
-      "bytes": 271,
-      "head": "21 passed in 2.58s | Spec coverage: 3/3 (100%) | Coverage (cache.py+cache_store.py): 84% | All 3 required tests present and passing: test_fr04_cached_run_replays_done_result, test_fr04_expired_cache_reexecutes_command, test_fr04_corrupt_cache_file_falls_back_to_execution"
+      "sha256": "7d345cfd3b6f50ef68fadcc112bb42ea38e41ab4e2172e76f667830a16c33ae2",
+      "bytes": 190,
+      "head": "============================= 312 passed in 12.99s =============================\nCoverage: cli/commands.py=100.00%, models/task.py=100.00%, storage/task_store.py=100.00% (526/526 statements)"
     },
     "architecture_constraints": {
       "source": "tool_evidence (inline)",

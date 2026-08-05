@@ -7,6 +7,7 @@
 .methodology/trace/attestation.latest.json
 .methodology/sessions_spawn.log
 .methodology/sessions_spawn.log.lock
+.methodology/.mutation_exclusive.lock
 .harness/traces/
 .venv/
 venv/

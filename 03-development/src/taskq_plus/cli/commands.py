@@ -907,10 +907,7 @@ def export(argv: Optional[List[str]] = None, *, use_disk: bool = False) -> int:
         # (e.g. `--format xml`). The handler contract is to *return* the
         # exit code rather than let SystemExit propagate, so in-process
         # callers can assert `rc == 2` without rescuing the exception.
-        code = exc.code
-        if isinstance(code, int):
-            return code
-        return 2
+        return exc.code
 
     store = get_store(use_disk=use_disk)
     tasks = store.all()
